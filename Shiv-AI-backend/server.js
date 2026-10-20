@@ -552,30 +552,30 @@ function harvestWords(prompt, answer) {
 }
 
 /** Mix fragments + words into a free-form reply (self-speak) */
-function composeFromParts(prompt, tokens, mode, ranked) {
+function composeFromParts(prompt, tokens, mode, ranked, lane) {
   const p = String(prompt).toLowerCase();
-  const openers = [
-    "hey.",
-    "alright.",
-    "ok.",
-    "got it.",
-    "yeah.",
-    "mm.",
-  ];
-  const bridges = [
-    "here's how i'd put it:",
-    "mixing what i know:",
-    "from the pieces i have:",
-    "rough take:",
-    "trying this:",
-  ];
-  const closers = [
-    "that land?",
-    "close?",
-    "correct me if off.",
-    "say if that's wrong.",
-    "train me if not.",
-  ];
+  const openers = lane === "code"
+    ? ["ok.", "got it.", "on it.", "looking at it."]
+    : ["hey.", "alright.", "ok.", "got it.", "yeah.", "mm.", "so,"];
+  const bridges = lane === "code"
+    ? ["from learned pieces:", "code-side take:", "mixing symbols/words:", "sketch:"]
+    : [
+        "here's how i'd put it:",
+        "mixing what i know:",
+        "reading the situation:",
+        "own words:",
+        "rough take:",
+        "trying this:",
+      ];
+  const closers = lane === "code"
+    ? ["paste more context if off.", "correct the snippet if wrong.", "train the right code if needed."]
+    : [
+        "that land?",
+        "close?",
+        "correct me if off.",
+        "say if that's wrong.",
+        "train me if not.",
+      ];
   const emojiPool = ["🔥", "💪", "👀", "✨", "👍", ""];
 
   // pull short phrases from top ranked chat/emotion samples
@@ -610,17 +610,22 @@ function composeFromParts(prompt, tokens, mode, ranked) {
   const emoji = emojiPool[Math.floor(Math.random() * emojiPool.length)];
 
   let body;
-  if (bits.length >= 2) {
+  const problemish = /\b(help|stuck|problem|issue|fix|broken|error|fail|how do i|what should|solve|situation)\b/i.test(p);
+  if (lane === "free" && problemish) {
+    const topic = content.slice(0, 4).join(" ") || "this";
+    const step = bits[0] || (related.length ? `lean on: ${related.slice(0, 4).join(", ")}` : "split it into one next step");
+    body = `situation read: **${topic}**. move: ${step}. if that misses, rewrite me.`;
+  } else if (bits.length >= 2) {
     body = bits.slice(0, 2).join(" ");
   } else if (bits.length === 1) {
     body = bits[0];
-  } else if (mode === "code") {
-    body = "i don't have a clean snippet locked for that yet — drop a sample under Train AI or correct me below.";
+  } else if (lane === "code" || mode === "code") {
+    body = "no locked snippet for that yet — teach the right code below or add a Train sample.";
   } else {
     const topic = content.slice(0, 3).join(" ") || "that";
     body = related.length
-      ? `on **${topic}** i only have loose words so far: ${related.slice(0, 5).join(", ")}.`
-      : `i don't have a solid line for **${topic}** yet.`;
+      ? `on **${topic}** in my own mix: ${related.slice(0, 5).join(", ")}.`
+      : `i don't have a solid line for **${topic}** yet — correct me.`;
   }
 
   // light emoji on chat
@@ -637,7 +642,7 @@ function composeFromParts(prompt, tokens, mode, ranked) {
   };
 }
 
-async function generateReply(prompt, fileContext) {
+async function generateReply(prompt, fileContext, chatMode) {
   const tokens = tokenize(prompt);
   const pLow = String(prompt)
     .toLowerCase()
@@ -646,8 +651,18 @@ async function generateReply(prompt, fileContext) {
     .replace(/[!?.,]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  const mode = detectMode(prompt, tokens);
-  const think = buildThink(mode, tokens, prompt);
+  // chatMode: "free" | "code" — user-selected lane
+  const lane = chatMode === "code" ? "code" : "free";
+  let mode = detectMode(prompt, tokens);
+  if (lane === "code") {
+    // code chat: force code thinking; only fall to search/wordunion if explicit
+    if (mode !== "search" && mode !== "wordunion") mode = "code";
+  } else {
+    // free chat: prefer chat / emotion / comprehensive situational talk
+    if (mode === "code") mode = "chat";
+  }
+  const thinkBase = buildThink(mode, tokens, prompt);
+  const think = `think: lane=${lane} · ` + thinkBase.replace(/^think:\s*/i, "");
   const es = looksSpanish(prompt, tokens);
 
   const greetMap = {
@@ -665,11 +680,36 @@ async function generateReply(prompt, fileContext) {
     wyd: "waiting on you. go.",
   };
 
-  // rank all samples once
+  // rank samples once — filtered by lane
   function rankAll() {
     const ranked = [];
     for (const s of samples) {
-      const { score, overlap } = scoreSample(tokens, s, mode);
+      const src = (s.source || "").toLowerCase();
+      const tag = (s.tag || "").toLowerCase();
+      if (lane === "code") {
+        // code chat: only learned + code seeds (no pure smalltalk)
+        const ok =
+          src.includes("code") ||
+          src === "learned" ||
+          ["code", "lua", "python", "js", "cpp", "corrected", "composed-ok", "confirmed", "learned"].includes(tag) ||
+          /```/.test(s.a || "");
+        if (!ok) continue;
+      } else {
+        // free chat: skip pure code dumps unless prompt asks
+        if ((src.includes("code") || tag === "code" || tag === "lua") && mode === "chat") {
+          // allow weak keep only if strong overlap later via score
+        }
+      }
+      let { score, overlap } = scoreSample(tokens, s, mode);
+      if (lane === "code") {
+        if (src.includes("code") || /```/.test(s.a || "")) score += 8;
+        if (src === "learned") score += 4;
+      } else {
+        if (src.includes("conversational") || tag === "chat" || tag === "emotion") score += 8;
+        if (src.includes("comprehensive") || tag === "comprehensive") score += 3;
+        // penalize code blocks in free lane
+        if (/```/.test(s.a || "") && mode === "chat") score *= 0.15;
+      }
       if (score <= 0) continue;
       ranked.push({
         id: s.id,
@@ -697,11 +737,10 @@ async function generateReply(prompt, fileContext) {
     }));
   }
 
-  // hard greetings
-  if (greetMap[pLow] || isGreeting(tokens, prompt)) {
+  // hard greetings — free lane only (code lane stays technical)
+  if (lane === "free" && (greetMap[pLow] || isGreeting(tokens, prompt))) {
     const text = greetMap[pLow] || "hey! what's up? 🔥";
     const ranked = rankAll();
-    // inject greeting as top candidate too
     const cands = [
       { rank: 1, id: "greet", text, score: 99, tag: "chat", source: "greet", overlap: 1 },
       ...packCandidates(ranked, 4).map((c, i) => ({ ...c, rank: i + 2 })),
@@ -712,7 +751,10 @@ async function generateReply(prompt, fileContext) {
       score: 99,
       sampleId: "greet",
       mode: "chat",
+      chatMode: lane,
       learned: false,
+      composed: false,
+      needsReview: true,
       candidates: cands.slice(0, 5),
       pickHint: "choose a candidate below to teach / lock that reply",
     };
@@ -776,8 +818,16 @@ async function generateReply(prompt, fileContext) {
   const bestOverlap = best ? best.overlap : 0;
   const candidates = packCandidates(ranked, 5);
 
-  const threshold =
+  let threshold =
     mode === "code" ? 6.0 : mode === "compare" || mode === "comprehensive" ? 5.5 : mode === "emotion" ? 5.0 : mode === "chat" ? 5.5 : 8.0;
+  if (lane === "free") {
+    // free chat: only lock samples when very strong; otherwise self-speak / situational mix
+    threshold = mode === "emotion" ? 8.0 : 12.0;
+  }
+  if (lane === "code") {
+    // code chat: prefer learned/code hits; lower bar for code samples
+    threshold = 5.0;
+  }
 
   if (best && bestScore >= threshold && bestOverlap >= (mode === "chat" || mode === "emotion" ? 0.9 : 1.2)) {
     let out = `${think}\n\n${best.a}`;
@@ -809,7 +859,7 @@ async function generateReply(prompt, fileContext) {
   }
 
   // weak / no match → self-speak (mix words + fragments) so it can talk, then user corrects
-  const composed = composeFromParts(prompt, tokens, mode, ranked);
+  const composed = composeFromParts(prompt, tokens, mode, ranked, lane);
   let dictNote = "";
   const contentWords = tokens.filter(
     (t) =>
@@ -935,7 +985,9 @@ const server = http.createServer(async (req, res) => {
       const prompt = String(body.prompt || body.message || "").trim();
       if (!prompt) return send(res, 400, { ok: false, error: "prompt required" });
       const fileContext = body.fileContext ? String(body.fileContext).slice(0, 4000) : "";
-      const result = await generateReply(prompt, fileContext);
+      const chatMode = String(body.chatMode || body.mode || "free").toLowerCase() === "code" ? "code" : "free";
+      const result = await generateReply(prompt, fileContext, chatMode);
+      result.chatMode = chatMode;
       return send(res, 200, result);
     }
 
