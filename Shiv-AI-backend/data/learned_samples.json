@@ -16,5 +16,14 @@
     "at": 1792504009129,
     "source": "learned",
     "hits": 3
+  },
+  {
+    "id": "mvgvyvpdnlfnnne",
+    "q": "tell me something random about building tools",
+    "a": "a bug walks into a bar. bartender says we don't serve race conditions. bug says then give me two threads.",
+    "tag": "learned",
+    "at": 1792513016829,
+    "source": "learned",
+    "hits": 3
   }
 ]
