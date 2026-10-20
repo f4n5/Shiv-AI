@@ -1,0 +1,20 @@
+[
+  {
+    "id": "mvgqlsuxiz4mqq7",
+    "q": "explain how aimbot works",
+    "a": "Aimbot finds enemy positions in memory or via engine, converts 3D world coords to 2D screen (W2S), picks a target by FOV/distance/priority, then moves the camera or mouse toward that point. Silent aim writes angles without moving the visible crosshair the same way.",
+    "tag": "comprehensive",
+    "at": 1792504008535,
+    "source": "learned",
+    "hits": 5
+  },
+  {
+    "id": "mvgqltbdhy63uns",
+    "q": "what is fanware",
+    "a": "Fanware is the external/cheat project suite around Fansware scripts and Shiv executor tooling.",
+    "tag": "learned",
+    "at": 1792504009129,
+    "source": "learned",
+    "hits": 3
+  }
+]

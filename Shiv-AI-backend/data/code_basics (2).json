@@ -1,0 +1,800 @@
+[
+  {
+    "id": "cb001",
+    "q": "lua print",
+    "a": "```lua\nprint(\"hello\")\n```",
+    "tag": "lua",
+    "at": 1700001000000
+  },
+  {
+    "id": "cb002",
+    "q": "lua variable",
+    "a": "```lua\nlocal name = \"shiv\"\nlocal n = 42\n```",
+    "tag": "lua",
+    "at": 1700001000001
+  },
+  {
+    "id": "cb003",
+    "q": "lua if",
+    "a": "```lua\nif n > 10 then\n  print(\"big\")\nelseif n > 0 then\n  print(\"ok\")\nelse\n  print(\"no\")\nend\n```",
+    "tag": "lua",
+    "at": 1700001000002
+  },
+  {
+    "id": "cb004",
+    "q": "lua for",
+    "a": "```lua\nfor i = 1, 10 do\n  print(i)\nend\n```",
+    "tag": "lua",
+    "at": 1700001000003
+  },
+  {
+    "id": "cb005",
+    "q": "lua while",
+    "a": "```lua\nlocal i = 0\nwhile i < 5 do\n  i = i + 1\nend\n```",
+    "tag": "lua",
+    "at": 1700001000004
+  },
+  {
+    "id": "cb006",
+    "q": "lua function",
+    "a": "```lua\nlocal function add(a, b)\n  return a + b\nend\nprint(add(2, 3))\n```",
+    "tag": "lua",
+    "at": 1700001000005
+  },
+  {
+    "id": "cb007",
+    "q": "lua table",
+    "a": "```lua\nlocal t = { a = 1, b = 2 }\nprint(t.a)\ntable.insert(t, 3)\n```",
+    "tag": "lua",
+    "at": 1700001000006
+  },
+  {
+    "id": "cb008",
+    "q": "lua ipairs",
+    "a": "```lua\nlocal list = { \"a\", \"b\", \"c\" }\nfor i, v in ipairs(list) do\n  print(i, v)\nend\n```",
+    "tag": "lua",
+    "at": 1700001000007
+  },
+  {
+    "id": "cb009",
+    "q": "lua pairs",
+    "a": "```lua\nlocal t = { x = 1, y = 2 }\nfor k, v in pairs(t) do\n  print(k, v)\nend\n```",
+    "tag": "lua",
+    "at": 1700001000008
+  },
+  {
+    "id": "cb010",
+    "q": "lua string concat",
+    "a": "```lua\nlocal s = \"hello\" .. \" \" .. \"world\"\n```",
+    "tag": "lua",
+    "at": 1700001000009
+  },
+  {
+    "id": "cb011",
+    "q": "lua length",
+    "a": "```lua\nlocal s = \"abc\"\nprint(#s) -- 3\nlocal t = {1,2,3}\nprint(#t) -- 3\n```",
+    "tag": "lua",
+    "at": 1700001000010
+  },
+  {
+    "id": "cb012",
+    "q": "luau task wait",
+    "a": "```lua\ntask.wait(1) -- yield 1 second\n```",
+    "tag": "luau",
+    "at": 1700001000011
+  },
+  {
+    "id": "cb013",
+    "q": "luau spawn",
+    "a": "```lua\ntask.spawn(function()\n  print(\"async\")\nend)\n```",
+    "tag": "luau",
+    "at": 1700001000012
+  },
+  {
+    "id": "cb014",
+    "q": "roblox remote fire",
+    "a": "```lua\nRemoteEvent:FireServer(data)\n```",
+    "tag": "luau",
+    "at": 1700001000013
+  },
+  {
+    "id": "cb015",
+    "q": "roblox getservice",
+    "a": "```lua\nlocal Players = game:GetService(\"Players\")\nlocal lp = Players.LocalPlayer\n```",
+    "tag": "luau",
+    "at": 1700001000014
+  },
+  {
+    "id": "cb016",
+    "q": "cpp hello",
+    "a": "```cpp\n#include <iostream>\nint main() {\n  std::cout << \"hello\\n\";\n  return 0;\n}\n```",
+    "tag": "cpp",
+    "at": 1700001000015
+  },
+  {
+    "id": "cb017",
+    "q": "cpp variable",
+    "a": "```cpp\nint x = 10;\ndouble y = 3.14;\nstd::string name = \"shiv\";\n```",
+    "tag": "cpp",
+    "at": 1700001000016
+  },
+  {
+    "id": "cb018",
+    "q": "cpp if",
+    "a": "```cpp\nif (x > 0) {\n  // ...\n} else if (x == 0) {\n} else {\n}\n```",
+    "tag": "cpp",
+    "at": 1700001000017
+  },
+  {
+    "id": "cb019",
+    "q": "cpp for",
+    "a": "```cpp\nfor (int i = 0; i < n; ++i) {\n  // ...\n}\n```",
+    "tag": "cpp",
+    "at": 1700001000018
+  },
+  {
+    "id": "cb020",
+    "q": "cpp while",
+    "a": "```cpp\nwhile (running) {\n  // ...\n}\n```",
+    "tag": "cpp",
+    "at": 1700001000019
+  },
+  {
+    "id": "cb021",
+    "q": "cpp function",
+    "a": "```cpp\nint add(int a, int b) {\n  return a + b;\n}\n```",
+    "tag": "cpp",
+    "at": 1700001000020
+  },
+  {
+    "id": "cb022",
+    "q": "cpp vector",
+    "a": "```cpp\n#include <vector>\nstd::vector<int> v = {1,2,3};\nv.push_back(4);\n```",
+    "tag": "cpp",
+    "at": 1700001000021
+  },
+  {
+    "id": "cb023",
+    "q": "cpp string",
+    "a": "```cpp\n#include <string>\nstd::string s = \"hi\";\ns += \" there\";\n```",
+    "tag": "cpp",
+    "at": 1700001000022
+  },
+  {
+    "id": "cb024",
+    "q": "cpp class",
+    "a": "```cpp\nclass Player {\npublic:\n  int health = 100;\n  void damage(int d) { health -= d; }\n};\n```",
+    "tag": "cpp",
+    "at": 1700001000023
+  },
+  {
+    "id": "cb025",
+    "q": "cpp pointer",
+    "a": "```cpp\nint x = 5;\nint* p = &x;\n*p = 10;\n```",
+    "tag": "cpp",
+    "at": 1700001000024
+  },
+  {
+    "id": "cb026",
+    "q": "cpp null check",
+    "a": "```cpp\nif (ptr != nullptr) {\n  ptr->doThing();\n}\n```",
+    "tag": "cpp",
+    "at": 1700001000025
+  },
+  {
+    "id": "cb027",
+    "q": "cpp include guard",
+    "a": "```cpp\n#pragma once\n// or #ifndef HEADER_H / #define / #endif\n```",
+    "tag": "cpp",
+    "at": 1700001000026
+  },
+  {
+    "id": "cb028",
+    "q": "imgui checkbox",
+    "a": "```cpp\nstatic bool enabled = false;\nImGui::Checkbox(\"Enable\", &enabled);\n```",
+    "tag": "imgui",
+    "at": 1700001000027
+  },
+  {
+    "id": "cb029",
+    "q": "imgui slider",
+    "a": "```cpp\nstatic float fov = 90.f;\nImGui::SliderFloat(\"FOV\", &fov, 1.f, 180.f);\n```",
+    "tag": "imgui",
+    "at": 1700001000028
+  },
+  {
+    "id": "cb030",
+    "q": "imgui button",
+    "a": "```cpp\nif (ImGui::Button(\"Run\")) {\n  // click\n}\n```",
+    "tag": "imgui",
+    "at": 1700001000029
+  },
+  {
+    "id": "cb031",
+    "q": "imgui input text",
+    "a": "```cpp\nstatic char buf[256] = {};\nImGui::InputText(\"Name\", buf, sizeof(buf));\n```",
+    "tag": "imgui",
+    "at": 1700001000030
+  },
+  {
+    "id": "cb032",
+    "q": "imgui color",
+    "a": "```cpp\nstatic float col[3] = {1.f, 0.2f, 0.2f};\nImGui::ColorEdit3(\"Enemy\", col);\n```",
+    "tag": "imgui",
+    "at": 1700001000031
+  },
+  {
+    "id": "cb033",
+    "q": "imgui begin end",
+    "a": "```cpp\nif (ImGui::Begin(\"Menu\")) {\n  // widgets\n}\nImGui::End();\n```",
+    "tag": "imgui",
+    "at": 1700001000032
+  },
+  {
+    "id": "cb034",
+    "q": "python print",
+    "a": "```python\nprint(\"hello\")\n```",
+    "tag": "python",
+    "at": 1700001000033
+  },
+  {
+    "id": "cb035",
+    "q": "python variable",
+    "a": "```python\nname = \"shiv\"\nn = 42\n```",
+    "tag": "python",
+    "at": 1700001000034
+  },
+  {
+    "id": "cb036",
+    "q": "python if",
+    "a": "```python\nif n > 10:\n    print(\"big\")\nelif n > 0:\n    print(\"ok\")\nelse:\n    print(\"no\")\n```",
+    "tag": "python",
+    "at": 1700001000035
+  },
+  {
+    "id": "cb037",
+    "q": "python for",
+    "a": "```python\nfor i in range(10):\n    print(i)\n```",
+    "tag": "python",
+    "at": 1700001000036
+  },
+  {
+    "id": "cb038",
+    "q": "python function",
+    "a": "```python\ndef add(a, b):\n    return a + b\n```",
+    "tag": "python",
+    "at": 1700001000037
+  },
+  {
+    "id": "cb039",
+    "q": "python list",
+    "a": "```python\nxs = [1, 2, 3]\nxs.append(4)\n```",
+    "tag": "python",
+    "at": 1700001000038
+  },
+  {
+    "id": "cb040",
+    "q": "python dict",
+    "a": "```python\nd = {\"a\": 1, \"b\": 2}\nprint(d[\"a\"])\n```",
+    "tag": "python",
+    "at": 1700001000039
+  },
+  {
+    "id": "cb041",
+    "q": "python json load",
+    "a": "```python\nimport json\nwith open(\"data.json\") as f:\n    data = json.load(f)\n```",
+    "tag": "python",
+    "at": 1700001000040
+  },
+  {
+    "id": "cb042",
+    "q": "python json dump",
+    "a": "```python\nimport json\nwith open(\"out.json\", \"w\") as f:\n    json.dump(obj, f, indent=2)\n```",
+    "tag": "python",
+    "at": 1700001000041
+  },
+  {
+    "id": "cb043",
+    "q": "js console log",
+    "a": "```js\nconsole.log(\"hello\");\n```",
+    "tag": "js",
+    "at": 1700001000042
+  },
+  {
+    "id": "cb044",
+    "q": "js variable",
+    "a": "```js\nconst name = \"shiv\";\nlet n = 42;\n```",
+    "tag": "js",
+    "at": 1700001000043
+  },
+  {
+    "id": "cb045",
+    "q": "js if",
+    "a": "```js\nif (n > 10) {\n  // ...\n} else {\n  // ...\n}\n```",
+    "tag": "js",
+    "at": 1700001000044
+  },
+  {
+    "id": "cb046",
+    "q": "js for",
+    "a": "```js\nfor (let i = 0; i < n; i++) {\n  // ...\n}\n```",
+    "tag": "js",
+    "at": 1700001000045
+  },
+  {
+    "id": "cb047",
+    "q": "js function",
+    "a": "```js\nfunction add(a, b) {\n  return a + b;\n}\nconst add2 = (a, b) => a + b;\n```",
+    "tag": "js",
+    "at": 1700001000046
+  },
+  {
+    "id": "cb048",
+    "q": "js array map",
+    "a": "```js\nconst doubled = arr.map(x => x * 2);\n```",
+    "tag": "js",
+    "at": 1700001000047
+  },
+  {
+    "id": "cb049",
+    "q": "js fetch",
+    "a": "```js\nconst res = await fetch(url);\nconst data = await res.json();\n```",
+    "tag": "js",
+    "at": 1700001000048
+  },
+  {
+    "id": "cb050",
+    "q": "js localstorage",
+    "a": "```js\nlocalStorage.setItem(\"k\", JSON.stringify(obj));\nconst obj = JSON.parse(localStorage.getItem(\"k\") || \"null\");\n```",
+    "tag": "js",
+    "at": 1700001000049
+  },
+  {
+    "id": "cb051",
+    "q": "html skeleton",
+    "a": "```html\n<!DOCTYPE html>\n<html lang=\"en\">\n<head><meta charset=\"UTF-8\"><title>app</title></head>\n<body></body>\n</html>\n```",
+    "tag": "html",
+    "at": 1700001000050
+  },
+  {
+    "id": "cb052",
+    "q": "html button",
+    "a": "```html\n<button type=\"button\" id=\"go\">Go</button>\n```",
+    "tag": "html",
+    "at": 1700001000051
+  },
+  {
+    "id": "cb053",
+    "q": "css flex center",
+    "a": "```css\n.box {\n  display: flex;\n  align-items: center;\n  justify-content: center;\n}\n```",
+    "tag": "css",
+    "at": 1700001000052
+  },
+  {
+    "id": "cb054",
+    "q": "sql select",
+    "a": "```sql\nSELECT id, name FROM users WHERE active = 1;\n```",
+    "tag": "sql",
+    "at": 1700001000053
+  },
+  {
+    "id": "cb055",
+    "q": "sql insert",
+    "a": "```sql\nINSERT INTO users (name) VALUES ('shiv');\n```",
+    "tag": "sql",
+    "at": 1700001000054
+  },
+  {
+    "id": "cb056",
+    "q": "bash echo",
+    "a": "```bash\necho \"hello\"\n```",
+    "tag": "bash",
+    "at": 1700001000055
+  },
+  {
+    "id": "cb057",
+    "q": "bash loop files",
+    "a": "```bash\nfor f in *.json; do echo \"$f\"; done\n```",
+    "tag": "bash",
+    "at": 1700001000056
+  },
+  {
+    "id": "cb058",
+    "q": "c++ readprocessmemory sketch",
+    "a": "```cpp\nSIZE_T read = 0;\nReadProcessMemory(hProc, (LPCVOID)addr, buffer, size, &read);\n```",
+    "tag": "cpp",
+    "at": 1700001000057
+  },
+  {
+    "id": "cb059",
+    "q": "c++ w2s sketch",
+    "a": "```cpp\n// clip = matrix * worldPos; screen = (clip.x/clip.w, clip.y/clip.w) mapped to resolution\nbool WorldToScreen(const Vec3& world, Vec2& out, const float m[16], int w, int h);\n```",
+    "tag": "external",
+    "at": 1700001000058
+  },
+  {
+    "id": "cb060",
+    "q": "distance cull",
+    "a": "```cpp\nfloat dx = px-lx, dy=py-ly, dz=pz-lz;\nfloat dist = sqrtf(dx*dx+dy*dy+dz*dz);\nif (dist > maxDist) continue;\n```",
+    "tag": "external",
+    "at": 1700001000059
+  },
+  {
+    "id": "cb061",
+    "q": "imgui tab bar",
+    "a": "```cpp\nif (ImGui::BeginTabBar(\"##tabs\")) {\n  if (ImGui::BeginTabItem(\"Combat\")) { /*...*/ ImGui::EndTabItem(); }\n  ImGui::EndTabBar();\n}\n```",
+    "tag": "imgui",
+    "at": 1700001000060
+  },
+  {
+    "id": "cb062",
+    "q": "lua module return",
+    "a": "```lua\nlocal M = {}\nfunction M.greet()\n  print(\"hi\")\nend\nreturn M\n```",
+    "tag": "lua",
+    "at": 1700001000061
+  },
+  {
+    "id": "cb063",
+    "q": "python class",
+    "a": "```python\nclass Player:\n    def __init__(self, name):\n        self.name = name\n```",
+    "tag": "python",
+    "at": 1700001000062
+  },
+  {
+    "id": "cb064",
+    "q": "try catch cpp",
+    "a": "```cpp\ntry {\n  // ...\n} catch (const std::exception& e) {\n  std::cerr << e.what();\n}\n```",
+    "tag": "cpp",
+    "at": 1700001000063
+  },
+  {
+    "id": "cb065",
+    "q": "try except python",
+    "a": "```python\ntry:\n    risky()\nexcept Exception as e:\n    print(e)\n```",
+    "tag": "python",
+    "at": 1700001000064
+  },
+  {
+    "id": "cb066",
+    "q": "js try catch",
+    "a": "```js\ntry {\n  risky();\n} catch (e) {\n  console.error(e);\n}\n```",
+    "tag": "js",
+    "at": 1700001000065
+  },
+  {
+    "id": "cb067",
+    "q": "lua pcall",
+    "a": "```lua\nlocal ok, err = pcall(function()\n  -- risky\nend)\nif not ok then print(err) end\n```",
+    "tag": "lua",
+    "at": 1700001000066
+  },
+  {
+    "id": "cb068",
+    "q": "enum style cpp",
+    "a": "```cpp\nenum class Tab { Combat, Visual, Misc };\nTab t = Tab::Combat;\n```",
+    "tag": "cpp",
+    "at": 1700001000067
+  },
+  {
+    "id": "cb069",
+    "q": "struct config",
+    "a": "```cpp\nstruct AimbotConfig {\n  bool enabled = false;\n  float fov = 120.f;\n  float smooth = 0.15f;\n};\n```",
+    "tag": "cpp",
+    "at": 1700001000068
+  },
+  {
+    "id": "cb070",
+    "q": "singleton pattern simple",
+    "a": "```cpp\nclass App {\npublic:\n  static App& get() { static App a; return a; }\nprivate:\n  App() = default;\n};\n```",
+    "tag": "cpp",
+    "at": 1700001000069
+  },
+  {
+    "id": "cb071",
+    "q": "debounce js",
+    "a": "```js\nfunction debounce(fn, ms) {\n  let t;\n  return (...args) => {\n    clearTimeout(t);\n    t = setTimeout(() => fn(...args), ms);\n  };\n}\n```",
+    "tag": "js",
+    "at": 1700001000070
+  },
+  {
+    "id": "cb072",
+    "q": "clamp function",
+    "a": "```cpp\nfloat clamp(float v, float lo, float hi) {\n  return v < lo ? lo : (v > hi ? hi : v);\n}\n```",
+    "tag": "cpp",
+    "at": 1700001000071
+  },
+  {
+    "id": "cb073",
+    "q": "lerp",
+    "a": "```cpp\nfloat lerp(float a, float b, float t) {\n  return a + (b - a) * t;\n}\n```",
+    "tag": "cpp",
+    "at": 1700001000072
+  },
+  {
+    "id": "cb074",
+    "q": "normalize angle",
+    "a": "```cpp\nfloat normAngle(float a) {\n  while (a > 180.f) a -= 360.f;\n  while (a < -180.f) a += 360.f;\n  return a;\n}\n```",
+    "tag": "cpp",
+    "at": 1700001000073
+  },
+  {
+    "id": "cb075",
+    "q": "http get lua exploit style",
+    "a": "```lua\nlocal body = game:HttpGet(\"https://example.com/raw\")\n```",
+    "tag": "luau",
+    "at": 1700001000074
+  },
+  {
+    "id": "cb076",
+    "q": "json encode lua",
+    "a": "```lua\n-- depends on executor: HttpService:JSONEncode(t) in roblox\nlocal HttpService = game:GetService(\"HttpService\")\nlocal s = HttpService:JSONEncode({ a = 1 })\n```",
+    "tag": "luau",
+    "at": 1700001000075
+  },
+  {
+    "id": "cb077",
+    "q": "setmetatable",
+    "a": "```lua\nlocal t = {}\nsetmetatable(t, { __index = function(_, k) return 0 end })\n```",
+    "tag": "lua",
+    "at": 1700001000076
+  },
+  {
+    "id": "cb078",
+    "q": "coroutine lua",
+    "a": "```lua\nlocal co = coroutine.create(function()\n  print(\"step1\")\n  coroutine.yield()\n  print(\"step2\")\nend)\ncoroutine.resume(co)\n```",
+    "tag": "lua",
+    "at": 1700001000077
+  },
+  {
+    "id": "cb079",
+    "q": "mutex sketch cpp",
+    "a": "```cpp\n#include <mutex>\nstd::mutex mtx;\nstd::lock_guard<std::mutex> lock(mtx);\n```",
+    "tag": "cpp",
+    "at": 1700001000078
+  },
+  {
+    "id": "cb080",
+    "q": "atomic bool",
+    "a": "```cpp\n#include <atomic>\nstd::atomic<bool> running{true};\n```",
+    "tag": "cpp",
+    "at": 1700001000079
+  },
+  {
+    "id": "cb081",
+    "q": "sleep ms cpp",
+    "a": "```cpp\n#include <thread>\n#include <chrono>\nstd::this_thread::sleep_for(std::chrono::milliseconds(16));\n```",
+    "tag": "cpp",
+    "at": 1700001000080
+  },
+  {
+    "id": "cb082",
+    "q": "getasynckeystate",
+    "a": "```cpp\nif (GetAsyncKeyState(VK_INSERT) & 1) {\n  menuOpen = !menuOpen;\n}\n```",
+    "tag": "cpp",
+    "at": 1700001000081
+  },
+  {
+    "id": "cb083",
+    "q": "window find process",
+    "a": "```cpp\nHWND hwnd = FindWindowW(nullptr, L\"Roblox\");\nDWORD pid = 0;\nGetWindowThreadProcessId(hwnd, &pid);\n```",
+    "tag": "cpp",
+    "at": 1700001000082
+  },
+  {
+    "id": "cb084",
+    "q": "openprocess",
+    "a": "```cpp\nHANDLE h = OpenProcess(PROCESS_VM_READ | PROCESS_QUERY_INFORMATION, FALSE, pid);\n```",
+    "tag": "cpp",
+    "at": 1700001000083
+  },
+  {
+    "id": "cb085",
+    "q": "module base sketch",
+    "a": "```cpp\n// enum modules via Toolhelp32 / CreateToolhelp32Snapshot for module base\nuintptr_t base = GetModuleBase(pid, L\"RobloxPlayerBeta.exe\");\n```",
+    "tag": "cpp",
+    "at": 1700001000084
+  },
+  {
+    "id": "cb086",
+    "q": "html input",
+    "a": "```html\n<input type=\"text\" id=\"name\" placeholder=\"name\" />\n```",
+    "tag": "html",
+    "at": 1700001000085
+  },
+  {
+    "id": "cb087",
+    "q": "css dark bg",
+    "a": "```css\nbody {\n  background: #0a0b0d;\n  color: #e8eaed;\n  font-family: system-ui, sans-serif;\n}\n```",
+    "tag": "css",
+    "at": 1700001000086
+  },
+  {
+    "id": "cb088",
+    "q": "node http server minimal",
+    "a": "```js\nconst http = require(\"http\");\nhttp.createServer((req, res) => {\n  res.writeHead(200, { \"Content-Type\": \"text/plain\" });\n  res.end(\"ok\");\n}).listen(3000);\n```",
+    "tag": "js",
+    "at": 1700001000087
+  },
+  {
+    "id": "cb089",
+    "q": "express get",
+    "a": "```js\napp.get(\"/api/health\", (req, res) => res.json({ ok: true }));\n```",
+    "tag": "js",
+    "at": 1700001000088
+  },
+  {
+    "id": "cb090",
+    "q": "fetch post json",
+    "a": "```js\nawait fetch(\"/api/train\", {\n  method: \"POST\",\n  headers: { \"Content-Type\": \"application/json\" },\n  body: JSON.stringify({ q, a, tag })\n});\n```",
+    "tag": "js",
+    "at": 1700001000089
+  },
+  {
+    "id": "cb091",
+    "q": "regex email simple",
+    "a": "```js\nconst ok = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email);\n```",
+    "tag": "js",
+    "at": 1700001000090
+  },
+  {
+    "id": "cb092",
+    "q": "python requests get",
+    "a": "```python\nimport requests\nr = requests.get(url, timeout=10)\nr.raise_for_status()\ndata = r.json()\n```",
+    "tag": "python",
+    "at": 1700001000091
+  },
+  {
+    "id": "cb093",
+    "q": "python pathlib",
+    "a": "```python\nfrom pathlib import Path\ntext = Path(\"file.txt\").read_text(encoding=\"utf-8\")\n```",
+    "tag": "python",
+    "at": 1700001000092
+  },
+  {
+    "id": "cb094",
+    "q": "gitignore basics",
+    "a": "```\nnode_modules/\n.env\n*.exe\n*.obj\n.vs/\n```",
+    "tag": "git",
+    "at": 1700001000093
+  },
+  {
+    "id": "cb095",
+    "q": "git init commit",
+    "a": "```bash\ngit init\ngit add .\ngit commit -m \"init\"\n```",
+    "tag": "git",
+    "at": 1700001000094
+  },
+  {
+    "id": "cb096",
+    "q": "makefile simple",
+    "a": "```makefile\nCXX=g++\nall:\n\t$(CXX) -std=c++17 main.cpp -o app\n```",
+    "tag": "cpp",
+    "at": 1700001000095
+  },
+  {
+    "id": "cb097",
+    "q": "cmake executable",
+    "a": "```cmake\nadd_executable(app main.cpp)\ntarget_compile_features(app PRIVATE cxx_std_17)\n```",
+    "tag": "cpp",
+    "at": 1700001000096
+  },
+  {
+    "id": "cb098",
+    "q": "lua type check",
+    "a": "```lua\nif type(x) ~= \"number\" then\n  error(\"expected number\")\nend\n```",
+    "tag": "lua",
+    "at": 1700001000097
+  },
+  {
+    "id": "cb099",
+    "q": "assert lua",
+    "a": "```lua\nassert(player, \"player nil\")\n```",
+    "tag": "lua",
+    "at": 1700001000098
+  },
+  {
+    "id": "cb100",
+    "q": "early return",
+    "a": "```cpp\nif (!ptr) return;\n// happy path continues\n```",
+    "tag": "cpp",
+    "at": 1700001000099
+  },
+  {
+    "id": "cb101",
+    "q": "ternary",
+    "a": "```cpp\nint v = cond ? a : b;\n```",
+    "tag": "cpp",
+    "at": 1700001000100
+  },
+  {
+    "id": "cb102",
+    "q": "switch case",
+    "a": "```cpp\nswitch (tab) {\n  case 0: drawCombat(); break;\n  case 1: drawVisual(); break;\n  default: break;\n}\n```",
+    "tag": "cpp",
+    "at": 1700001000101
+  },
+  {
+    "id": "cb103",
+    "q": "string format cpp",
+    "a": "```cpp\nchar buf[64];\nsnprintf(buf, sizeof(buf), \"hp %d\", hp);\n```",
+    "tag": "cpp",
+    "at": 1700001000102
+  },
+  {
+    "id": "cb104",
+    "q": "string format python",
+    "a": "```python\ns = f\"hp {hp}\"\n```",
+    "tag": "python",
+    "at": 1700001000103
+  },
+  {
+    "id": "cb105",
+    "q": "string format lua",
+    "a": "```lua\nlocal s = string.format(\"hp %d\", hp)\n```",
+    "tag": "lua",
+    "at": 1700001000104
+  },
+  {
+    "id": "cb106",
+    "q": "math clamp lua",
+    "a": "```lua\nlocal function clamp(v, lo, hi)\n  if v < lo then return lo end\n  if v > hi then return hi end\n  return v\nend\n```",
+    "tag": "lua",
+    "at": 1700001000105
+  },
+  {
+    "id": "cb107",
+    "q": "table find",
+    "a": "```lua\nlocal function find(t, val)\n  for i, v in ipairs(t) do\n    if v == val then return i end\n  end\nend\n```",
+    "tag": "lua",
+    "at": 1700001000106
+  },
+  {
+    "id": "cb108",
+    "q": "deep copy caution",
+    "a": "Prefer structured clone / explicit field copy. Naive recursion can blow stack on cycles.",
+    "tag": "code",
+    "at": 1700001000107
+  },
+  {
+    "id": "cb109",
+    "q": "null coalesce js",
+    "a": "```js\nconst v = input ?? \"default\";\n```",
+    "tag": "js",
+    "at": 1700001000108
+  },
+  {
+    "id": "cb110",
+    "q": "optional chaining",
+    "a": "```js\nconst name = player?.character?.name;\n```",
+    "tag": "js",
+    "at": 1700001000109
+  },
+  {
+    "id": "cb111",
+    "q": "const vs let",
+    "a": "const = binding can't be reassigned. let = can. prefer const by default.",
+    "tag": "js",
+    "at": 1700001000110
+  },
+  {
+    "id": "cb112",
+    "q": "raii idea",
+    "a": "C++: acquire resource in constructor, release in destructor so cleanup is automatic.",
+    "tag": "cpp",
+    "at": 1700001000111
+  },
+  {
+    "id": "cb113",
+    "q": "header source split",
+    "a": "Declare in .hpp, define in .cpp. Keeps compile times and deps sane.",
+    "tag": "cpp",
+    "at": 1700001000112
+  },
+  {
+    "id": "cb114",
+    "q": "unity build warning",
+    "a": "Dumping all cpp into one TU speeds compile but hides dependency issues.",
+    "tag": "cpp",
+    "at": 1700001000113
+  }
+]
