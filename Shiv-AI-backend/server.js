@@ -39,6 +39,220 @@ let wordSet = new Set();
 /** @type {Map<string, number>} recent auto-learn keys to avoid spam */
 const recentLearn = new Map();
 
+/** Markov brain — learns sentence flow from all answers so it can invent lines */
+/** @type {Map<string, Map<string, number>>} */
+let markov = new Map();
+/** @type {string[]} sentence starters */
+let starters = [];
+/** @type {Map<string, string[]>} short phrase banks by mode/tag */
+let phraseBank = new Map();
+
+function markovSize() {
+  let n = 0;
+  for (const m of markov.values()) n += m.size;
+  return n;
+}
+
+function pushMarkov(a, b) {
+  if (!a || !b) return;
+  if (!markov.has(a)) markov.set(a, new Map());
+  const row = markov.get(a);
+  row.set(b, (row.get(b) || 0) + 1);
+}
+
+function wordsForMarkov(text) {
+  return String(text)
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/[_*`#]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .map((w) => w.trim())
+    .filter((w) => w.length > 0 && w.length < 40);
+}
+
+function rebuildBrain() {
+  markov = new Map();
+  starters = [];
+  phraseBank = new Map();
+  for (const s of samples) {
+    const a = String(s.a || "");
+    if (a.length < 4) continue;
+    // phrase bank by tag/mode
+    const key = (s.tag || s.source || "general").toLowerCase();
+    if (!phraseBank.has(key)) phraseBank.set(key, []);
+    const bank = phraseBank.get(key);
+    // split into sentence-ish chunks
+    for (const part of a.split(/(?<=[.!?])\s+/)) {
+      const cleaned = part.replace(/\n+/g, " ").trim();
+      if (cleaned.length >= 8 && cleaned.length <= 220 && !cleaned.includes("```")) {
+        bank.push(cleaned);
+      }
+    }
+    const words = wordsForMarkov(a);
+    if (words.length < 2) continue;
+    starters.push(words[0]);
+    for (let i = 0; i < words.length - 1; i++) {
+      pushMarkov(words[i], words[i + 1]);
+      if (i < words.length - 2) {
+        // bigram key → next
+        pushMarkov(words[i] + " " + words[i + 1], words[i + 2]);
+      }
+    }
+  }
+  // keep banks bounded
+  for (const [k, arr] of phraseBank) {
+    if (arr.length > 400) phraseBank.set(k, arr.slice(-400));
+  }
+  if (starters.length > 2000) starters = starters.slice(-2000);
+}
+
+function pickWeighted(row) {
+  if (!row || !row.size) return null;
+  let total = 0;
+  for (const c of row.values()) total += c;
+  let r = Math.random() * total;
+  for (const [w, c] of row) {
+    r -= c;
+    if (r <= 0) return w;
+  }
+  return [...row.keys()][0];
+}
+
+/** Generate a novel sentence via markov, biased by prompt tokens */
+function markovSpeak(promptTokens, maxWords = 28) {
+  if (!markov.size) return null;
+  const stop = new Set(["the", "a", "an", "is", "are", "to", "of", "and", "or", "in", "on", "for"]);
+  const seeds = promptTokens.filter((t) => !stop.has(t) && markov.has(t));
+  let cur = seeds.length ? seeds[Math.floor(Math.random() * seeds.length)] : null;
+  if (!cur) {
+    cur = starters.length ? starters[Math.floor(Math.random() * starters.length)] : null;
+  }
+  if (!cur || !markov.has(cur)) {
+    // random start key
+    const keys = [...markov.keys()].filter((k) => !k.includes(" "));
+    if (!keys.length) return null;
+    cur = keys[Math.floor(Math.random() * keys.length)];
+  }
+  const out = [cur];
+  let prev = cur;
+  for (let i = 0; i < maxWords; i++) {
+    // prefer bigram continuity
+    let next = null;
+    if (out.length >= 2) {
+      const big = out[out.length - 2] + " " + out[out.length - 1];
+      if (markov.has(big)) next = pickWeighted(markov.get(big));
+    }
+    if (!next && markov.has(prev)) next = pickWeighted(markov.get(prev));
+    if (!next) break;
+    out.push(next);
+    prev = next;
+    if (/[.!?]$/.test(next) && out.length > 6) break;
+  }
+  let text = out.join(" ").replace(/\s+([,.!?])/g, "$1");
+  // capitalize first letter
+  text = text.charAt(0).toUpperCase() + text.slice(1);
+  if (!/[.!?]$/.test(text)) text += ".";
+  return text;
+}
+
+function pickPhrase(tags) {
+  for (const tag of tags) {
+    const bank = phraseBank.get(tag);
+    if (bank && bank.length) return bank[Math.floor(Math.random() * bank.length)];
+  }
+  // any bank
+  for (const bank of phraseBank.values()) {
+    if (bank && bank.length) return bank[Math.floor(Math.random() * bank.length)];
+  }
+  return null;
+}
+
+/** Intent-aware free talk — invents a line, does not paste a full JSON answer */
+function inventReply(prompt, tokens, mode, lane) {
+  const p = String(prompt);
+  const content = tokens.filter(
+    (t) =>
+      !["the", "and", "for", "that", "this", "with", "from", "what", "how", "are", "you", "is", "a", "an", "do", "does", "can", "me", "my", "to", "of", "in", "on"].includes(t)
+  );
+  const topic = content.slice(0, 5).join(" ") || "that";
+  const es = looksSpanish(prompt, tokens);
+  const mark = markovSpeak(tokens, mode === "code" ? 20 : 32);
+  const emojiPool = ["🔥", "💪", "👀", "✨", "👍", ""];
+  const emoji = emojiPool[Math.floor(Math.random() * emojiPool.length)];
+
+  // situational templates that fill with topic + optional markov clause
+  const clause = mark ? mark.replace(/\.$/, "") : null;
+
+  if (lane === "free" || mode === "chat" || mode === "emotion") {
+    if (isGreeting(tokens, prompt) || /^(hey|hi|hello|yo)\b/i.test(p)) {
+      const opts = es
+        ? [`hola. acá estoy ${emoji} ¿qué armamos?`, `buenas. decime y lo encaramos ${emoji}`, `hola — listo cuando vos.`]
+        : [
+            `hey. solid over here ${emoji} what's the move?`,
+            `yo. i'm here — drop whatever's on your mind ${emoji}`,
+            `hey. free to talk or build, your call.`,
+          ];
+      return opts[Math.floor(Math.random() * opts.length)].replace(/\s+/g, " ").trim();
+    }
+    if (/how are you|how r u|como estas|cómo estás/i.test(p)) {
+      return es
+        ? `bien, enfocado. vos? ${emoji}`
+        : `good. locked in. you? ${emoji}`.replace(/\s+/g, " ").trim();
+    }
+    if (/thank|gracias|thx/i.test(p)) {
+      return es ? `de nada. cuando quieras seguimos ${emoji}` : `anytime. that's what i'm for ${emoji}`.trim();
+    }
+    if (/bye|chau|goodbye|see you|gn\b/i.test(p)) {
+      return es ? `chau. acá quedo.` : `later. i don't leave — just quiet until you're back.`;
+    }
+    if (/bored|aburrido/i.test(p)) {
+      return `bored is free real estate. want a small build, a weird idea, or just talk ${emoji}?`;
+    }
+    if (/stuck|help|problem|issue|broken|error|fail/i.test(p)) {
+      const bit = clause || pickPhrase(["chat", "basic", "learned"]) || "split it into one next step";
+      return `i hear you on **${topic}**. try this angle: ${bit}. if it's wrong, rewrite me and i'll learn.`;
+    }
+    if (/what do you think|opinion|should i/i.test(p)) {
+      return `on **${topic}**: ${clause || "i'd keep it simple and ship a small version first"}. correct me if that misses your goal.`;
+    }
+    if (/who are you|what are you|are you ai/i.test(p)) {
+      return `shiv. his ai. i talk free, learn when you correct me, and stay on the work.`;
+    }
+    // general free invention
+    if (clause && content.length) {
+      const frames = [
+        `on **${topic}** — ${clause}. ${emoji}`,
+        `my take: ${clause}. topic stays **${topic}**. say if that's off.`,
+        `${clause} — that's where i land on **${topic}** ${emoji}`,
+        `thinking out loud on **${topic}**: ${clause}. train me if you want a different line.`,
+      ];
+      return frames[Math.floor(Math.random() * frames.length)].replace(/\s+/g, " ").trim();
+    }
+    if (clause) {
+      return `${clause} ${emoji}`.trim();
+    }
+    const soft = pickPhrase(["chat", "basic", "emotion", "learned"]);
+    if (soft) return soft + (emoji ? " " + emoji : "");
+    return es
+      ? `sobre **${topic}** todavía estoy armando la frase. corregime y aprendo.`
+      : `on **${topic}** i don't have a clean line yet — correct me and i lock it.`;
+  }
+
+  if (mode === "comprehensive" || mode === "compare") {
+    const bit = clause || pickPhrase(["comprehensive", "compare", "basic"]) || "";
+    return bit
+      ? `here's a free-form pass on **${topic}**: ${bit}. expand or correct via teach.`
+      : `i can outline **${topic}** once you train a fuller sample — or correct a draft.`;
+  }
+
+  if (mode === "code" || lane === "code") {
+    return `no locked snippet for **${topic}** yet. paste the right code under teach / Train AI and i'll reuse the pattern.`;
+  }
+
+  return clause || `still forming a line for **${topic}**. correct me.`;
+}
+
 function readJson(file, fallback) {
   try {
     return JSON.parse(fs.readFileSync(file, "utf8"));
@@ -110,7 +324,8 @@ function loadAll() {
   }
   const wordsDoc = readJson(WORDS_PATH, { words: [] });
   wordSet = new Set((wordsDoc.words || []).map((w) => String(w).toLowerCase()));
-  console.log(`[shiv-ai] loaded ${samples.length} samples, ${wordSet.size} words`);
+  rebuildBrain();
+  console.log(`[shiv-ai] loaded ${samples.length} samples, ${wordSet.size} words, markov ${markovSize()}`);
 }
 
 function tokenize(s) {
@@ -524,6 +739,7 @@ function maybeAutoLearn(prompt, answer, mode, score, sampleId) {
   };
   samples.push(sample);
   persistLearned();
+  rebuildBrain();
   console.log(`[shiv-ai] auto-learned q="${sample.q.slice(0, 40)}…" score=${score.toFixed(1)}`);
   return true;
 }
@@ -551,94 +767,21 @@ function harvestWords(prompt, answer) {
   return added;
 }
 
-/** Mix fragments + words into a free-form reply (self-speak) */
+/** Mix fragments + invent free-form reply (self-speak) */
 function composeFromParts(prompt, tokens, mode, ranked, lane) {
-  const p = String(prompt).toLowerCase();
-  const openers = lane === "code"
-    ? ["ok.", "got it.", "on it.", "looking at it."]
-    : ["hey.", "alright.", "ok.", "got it.", "yeah.", "mm.", "so,"];
-  const bridges = lane === "code"
-    ? ["from learned pieces:", "code-side take:", "mixing symbols/words:", "sketch:"]
-    : [
-        "here's how i'd put it:",
-        "mixing what i know:",
-        "reading the situation:",
-        "own words:",
-        "rough take:",
-        "trying this:",
-      ];
-  const closers = lane === "code"
-    ? ["paste more context if off.", "correct the snippet if wrong.", "train the right code if needed."]
-    : [
-        "that land?",
-        "close?",
-        "correct me if off.",
-        "say if that's wrong.",
-        "train me if not.",
-      ];
-  const emojiPool = ["🔥", "💪", "👀", "✨", "👍", ""];
-
-  // pull short phrases from top ranked chat/emotion samples
+  // primary: invent original sentence from markov + intent
+  const invented = inventReply(prompt, tokens, mode, lane);
+  // secondary candidates from nearby samples (for picker), not as main voice
   const bits = [];
-  for (const r of ranked.slice(0, 8)) {
-    if (!r || !r.a) continue;
-    let a = String(r.a).replace(/^```[\s\S]*?```/g, "").trim();
-    // take first sentence-ish
-    const cut = a.split(/(?<=[.!?])\s+/)[0] || a;
-    if (cut.length >= 8 && cut.length <= 140) bits.push(cut);
-    if (bits.length >= 3) break;
+  for (const r of ranked.slice(0, 5)) {
+    const cut = String(r.a || "").replace(/```[\s\S]*?```/g, "").replace(/\n+/g, " ").trim();
+    if (cut.length >= 12 && cut.length <= 160) bits.push(cut);
   }
-
-  // word mix from prompt content + vocab
-  const stop = new Set(["the", "and", "for", "that", "this", "with", "from", "what", "how", "are", "you", "is", "a", "an"]);
-  const content = tokens.filter((x) => !stop.has(x) && x.length > 2);
-  const related = [];
-  for (const w of content.slice(0, 4)) {
-    for (const x of wordSet) {
-      if (x === w) continue;
-      if (x.startsWith(w.slice(0, Math.min(3, w.length))) && Math.abs(x.length - w.length) <= 4) {
-        related.push(x);
-        if (related.length >= 6) break;
-      }
-    }
-    if (related.length >= 6) break;
-  }
-
-  const opener = openers[Math.floor(Math.random() * openers.length)];
-  const bridge = bridges[Math.floor(Math.random() * bridges.length)];
-  const closer = closers[Math.floor(Math.random() * closers.length)];
-  const emoji = emojiPool[Math.floor(Math.random() * emojiPool.length)];
-
-  let body;
-  const problemish = /\b(help|stuck|problem|issue|fix|broken|error|fail|how do i|what should|solve|situation)\b/i.test(p);
-  if (lane === "free" && problemish) {
-    const topic = content.slice(0, 4).join(" ") || "this";
-    const step = bits[0] || (related.length ? `lean on: ${related.slice(0, 4).join(", ")}` : "split it into one next step");
-    body = `situation read: **${topic}**. move: ${step}. if that misses, rewrite me.`;
-  } else if (bits.length >= 2) {
-    body = bits.slice(0, 2).join(" ");
-  } else if (bits.length === 1) {
-    body = bits[0];
-  } else if (lane === "code" || mode === "code") {
-    body = "no locked snippet for that yet — teach the right code below or add a Train sample.";
-  } else {
-    const topic = content.slice(0, 3).join(" ") || "that";
-    body = related.length
-      ? `on **${topic}** in my own mix: ${related.slice(0, 5).join(", ")}.`
-      : `i don't have a solid line for **${topic}** yet — correct me.`;
-  }
-
-  // light emoji on chat
-  if (mode === "chat" && emoji && !/[🔥💪👀✨👍]/.test(body)) {
-    if (Math.random() > 0.45) body = body.replace(/\s*$/, " " + emoji);
-  }
-
-  const text = `${opener} ${bridge} ${body} ${closer}`.replace(/\s+/g, " ").trim();
   return {
-    text,
+    text: invented,
     composed: true,
     needsReview: true,
-    parts: { bits: bits.slice(0, 3), related: related.slice(0, 6), content },
+    parts: { bits: bits.slice(0, 3), content: tokens.slice(0, 8) },
   };
 }
 
@@ -821,15 +964,29 @@ async function generateReply(prompt, fileContext, chatMode) {
   let threshold =
     mode === "code" ? 6.0 : mode === "compare" || mode === "comprehensive" ? 5.5 : mode === "emotion" ? 5.0 : mode === "chat" ? 5.5 : 8.0;
   if (lane === "free") {
-    // free chat: only lock samples when very strong; otherwise self-speak / situational mix
-    threshold = mode === "emotion" ? 8.0 : 12.0;
+    // free chat: almost always invent; only lock near-exact trained lines
+    threshold = mode === "emotion" ? 14.0 : 28.0;
   }
   if (lane === "code") {
     // code chat: prefer learned/code hits; lower bar for code samples
     threshold = 5.0;
   }
 
-  if (best && bestScore >= threshold && bestOverlap >= (mode === "chat" || mode === "emotion" ? 0.9 : 1.2)) {
+  // free lane: only lock near-exact trained Q (not loose keyword hits)
+  let allowLock = best && bestScore >= threshold && bestOverlap >= (mode === "chat" || mode === "emotion" ? 0.9 : 1.2);
+  if (allowLock && lane === "free" && best) {
+    const qTok = tokenize(best.q);
+    const content = tokens.filter((x) => !["the","a","an","to","of","and","or","in","on","for","is","are","do","does"].includes(x));
+    const inter = content.filter((x) => qTok.includes(x)).length;
+    const exactish = content.length && inter >= Math.ceil(content.length * 0.85) && qTok.length <= content.length + 2;
+    // greetings handled earlier; for normal free talk require exactish or huge score
+    // free talk prefers invention; only lock rock-solid trained lines
+    if (!exactish || bestScore < 70) allowLock = false;
+    // short casual exact qs (thanks, how are you) may lock if score high
+    if (exactish && tokens.length <= 5 && bestScore >= 40) allowLock = true;
+  }
+
+  if (allowLock) {
     let out = `${think}\n\n${best.a}`;
     if (tokens.includes("synonym") || tokens.includes("related")) {
       const w = extractLookupWord(prompt, tokens);
@@ -858,26 +1015,22 @@ async function generateReply(prompt, fileContext, chatMode) {
     };
   }
 
-  // weak / no match → self-speak (mix words + fragments) so it can talk, then user corrects
+  // free / weak match → invent original sentence (markov + intent), user corrects
   const composed = composeFromParts(prompt, tokens, mode, ranked, lane);
-  let dictNote = "";
-  const contentWords = tokens.filter(
-    (t) =>
-      ![
-        "what", "is", "the", "a", "an", "how", "do", "does", "can", "you", "me", "please",
-        "por", "que", "qué", "como", "cómo", "for", "from", "with",
-      ].includes(t)
-  );
-  if (contentWords.length) {
-    try {
-      const dict = await dictLookup(contentWords[0], es);
-      if (dict && dict.text) dictNote = "\n\n" + dict.text;
-    } catch (_) {}
-  }
-  let out = `${think}\n\n${composed.text}${dictNote}`;
+  let out = `${think}\n\n${composed.text}`;
   if (fileContext) out += "\n\n(from your project)\n" + fileContext;
-  out += `\n\n_self-speak · mixed · mode ${mode} · score ${bestScore.toFixed(1)}_`;
+  out += `\n\n_self-spoke · invented · mode ${mode}_`;
   harvestWords(prompt, composed.text);
+  const invCand = {
+    rank: 1,
+    id: "invented",
+    text: composed.text,
+    score: 3,
+    tag: "invented",
+    source: "markov",
+    overlap: 0,
+  };
+  const merged = [invCand, ...candidates.filter((c) => c.text !== composed.text)].slice(0, 5);
   return {
     ok: true,
     text: out,
@@ -887,8 +1040,8 @@ async function generateReply(prompt, fileContext, chatMode) {
     learned: false,
     composed: true,
     needsReview: true,
-    candidates,
-    pickHint: "self-spoke — mark correct or rewrite below to teach",
+    candidates: merged,
+    pickHint: "invented line — teach this if good, or rewrite via Train / teach",
   };
 }
 
@@ -961,6 +1114,8 @@ const server = http.createServer(async (req, res) => {
         free: true,
         modes: ["chat", "compare", "comprehensive", "search", "code", "emotion", "wordunion"],
         selfLearn: true,
+        generative: true,
+        markov: markovSize(),
       });
     }
 
@@ -1017,7 +1172,8 @@ const server = http.createServer(async (req, res) => {
       samples.push(sample);
       persistLearned();
       harvestWords(q, a);
-      return send(res, 200, { ok: true, sample, total: samples.length });
+      rebuildBrain();
+      return send(res, 200, { ok: true, sample, total: samples.length, brain: markovSize() });
     }
 
     if (pathname === "/api/dict" && req.method === "GET") {
@@ -1046,7 +1202,8 @@ const server = http.createServer(async (req, res) => {
       samples.push(sample);
       persistLearned();
       harvestWords(q, a);
-      return send(res, 200, { ok: true, sample, total: samples.length });
+      rebuildBrain();
+      return send(res, 200, { ok: true, sample, total: samples.length, brain: markovSize() });
     }
 
     if (pathname === "/api/train/import" && req.method === "POST") {
