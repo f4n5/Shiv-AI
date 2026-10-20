@@ -438,9 +438,37 @@
       50% { background-position: 100% 50%; }
       100% { background-position: 0% 50%; }
     }
-    .chat-input-bar {
+    .chat-mode-bar {
+      display: flex;
+      gap: 6px;
+      padding: 8px 14px 0;
+      background: var(--panel);
       border-top: 1px solid var(--border);
-      padding: 12px 14px;
+    }
+    .chat-mode-bar button {
+      border: 1px solid var(--border);
+      background: var(--panel2);
+      color: var(--muted);
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .chat-mode-bar button.active {
+      color: #041210;
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+    .chat-mode-bar .mode-hint {
+      margin-left: auto;
+      font-size: 0.72rem;
+      color: var(--muted);
+      align-self: center;
+    }
+    .chat-input-bar {
+      border-top: none;
+      padding: 10px 14px 12px;
       background: var(--panel);
       display: flex;
       gap: 10px;
@@ -699,8 +727,13 @@
           <!-- chats -->
           <div class="ws-body active" id="ws-chats">
             <div class="chat-log" id="chat-log"></div>
+            <div class="chat-mode-bar">
+              <button type="button" class="active" data-chat-mode="free" id="mode-free">Free chat</button>
+              <button type="button" data-chat-mode="code" id="mode-code">Code chat</button>
+              <span class="mode-hint" id="mode-hint">own words · situations · mix</span>
+            </div>
             <div class="chat-input-bar">
-              <textarea id="chat-input" rows="2" placeholder="Ask for code, fix a bug, explain a file… (Enter to send, Shift+Enter newline)"></textarea>
+              <textarea id="chat-input" rows="2" placeholder="Talk free or ask code… (Enter to send)"></textarea>
               <button type="button" class="btn" id="btn-send">Send</button>
             </div>
           </div>
@@ -864,6 +897,7 @@
   if (!Array.isArray(samples) || !samples.length) samples = seedSamples();
   let activeId = projects[0] ? projects[0].id : null;
   let activeFile = null;
+  let chatMode = sessionStorage.getItem('shivai_chat_mode') === 'code' ? 'code' : 'free';
   let adminOk = sessionStorage.getItem(K.admin) === '1';
 
   function seedSamples() {
@@ -1049,11 +1083,12 @@
       const div = document.createElement('div');
       div.className = 'msg ' + m.role + (m.thinking ? ' thinking' : '');
       if (m.thinking) {
+        const laneLabel = (m.chatMode || chatMode) === 'code' ? 'code lane · learned · symbols' : 'free lane · own words · situation';
         div.innerHTML = `<div class="role">shiv ai</div>
           <div class="think-row">
             <span class="think-label">thinking</span>
             <span class="think-dots"><span></span><span></span><span></span></span>
-            <span style="color:var(--muted);font-size:0.8rem">matching talk · samples · words</span>
+            <span style="color:var(--muted);font-size:0.8rem">${laneLabel}</span>
           </div>`;
       } else {
         let body = `<div class="role">${m.role === 'user' ? 'you' : 'shiv ai'}</div>` + formatMsg(m.text || '');
@@ -1285,7 +1320,7 @@
     p.chats.push({ role: 'user', text, at: Date.now() });
     ta.value = '';
     // thinking placeholder
-    p.chats.push({ role: 'ai', thinking: true, text: '', at: Date.now() });
+    p.chats.push({ role: 'ai', thinking: true, text: '', at: Date.now(), chatMode });
     renderChat(p);
     const sendBtn = document.getElementById('btn-send');
     if (sendBtn) sendBtn.disabled = true;
@@ -1302,7 +1337,7 @@
       const res = await fetch(API_BASE + '/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: text, fileContext: fileContext || undefined })
+        body: JSON.stringify({ prompt: text, fileContext: fileContext || undefined, chatMode })
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
@@ -1334,6 +1369,29 @@
     renderProjectList();
     if (sendBtn) sendBtn.disabled = false;
   }
+
+  function applyChatModeUI() {
+    document.querySelectorAll('.chat-mode-bar button').forEach(b => {
+      b.classList.toggle('active', b.dataset.chatMode === chatMode);
+    });
+    const hint = document.getElementById('mode-hint');
+    const ta = document.getElementById('chat-input');
+    if (chatMode === 'code') {
+      if (hint) hint.textContent = 'learned code · think code · mix words';
+      if (ta) ta.placeholder = 'Code only — snippets, errors, APIs… (Enter to send)';
+    } else {
+      if (hint) hint.textContent = 'own words · situations · mix';
+      if (ta) ta.placeholder = 'Free talk — situations, ideas, feelings… (Enter to send)';
+    }
+  }
+  document.querySelectorAll('.chat-mode-bar button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      chatMode = btn.dataset.chatMode === 'code' ? 'code' : 'free';
+      sessionStorage.setItem('shivai_chat_mode', chatMode);
+      applyChatModeUI();
+    });
+  });
+  applyChatModeUI();
 
   document.getElementById('btn-send').onclick = sendChat;
   document.getElementById('chat-input').addEventListener('keydown', e => {
