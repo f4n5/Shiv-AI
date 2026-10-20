@@ -24,6 +24,51 @@
     "tag": "learned",
     "at": 1792513016829,
     "source": "learned",
+    "hits": 4
+  },
+  {
+    "id": "mvgwuoyakcnvdx0",
+    "q": "i feel stuck on life choices",
+    "a": "rough day hits hard. you're allowed to sit with it. if you want to talk or build something quiet, i'm here.",
+    "tag": "emotion",
+    "at": 1792514501071,
+    "source": "learned",
+    "hits": 1
+  },
+  {
+    "id": "mvgwups7v25xped",
+    "q": "lua print hello",
+    "a": "```lua\nprint(\"hello\")\n```",
+    "tag": "code",
+    "at": 1792514502150,
+    "source": "learned",
+    "hits": 1
+  },
+  {
+    "id": "mvgxuz7kn4ae6uf",
+    "q": "what do you think about building an aimbot",
+    "a": "about what? show me the options.",
+    "tag": "learned",
+    "at": 1792516193981,
+    "source": "learned",
+    "hits": 5
+  },
+  {
+    "id": "mvgxuzx8hky711v",
+    "q": "tell me something random about coding",
+    "a": "a bug walks into a bar. bartender says we don't serve race conditions. bug says then give me two threads.",
+    "tag": "learned",
+    "at": 1792516194906,
+    "source": "learned",
     "hits": 3
+  },
+  {
+    "id": "mvgxvcg7zoxvvah",
+    "q": "i feel lost today",
+    "a": "rough day hits hard. you're allowed to sit with it. if you want to talk or build something quiet, i'm here.",
+    "tag": "emotion",
+    "at": 1792516211142,
+    "source": "learned",
+    "hits": 1
   }
 ]
