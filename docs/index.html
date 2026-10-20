@@ -754,6 +754,25 @@
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   }
 
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function formatMsg(text) {
+    let html = escapeHtml(text);
+    html = html.replace(/```(\w*)\n([\s\S]*?)```/g, function (_, lang, code) {
+      return '<pre><code>' + code.replace(/\n$/, '') + '</code></pre>';
+    });
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+    html = html.replace(/\n/g, '<br/>');
+    return html;
+  }
+
   function normalizeProjects(list) {
     if (!Array.isArray(list)) return [];
     return list.filter(p => p && typeof p === 'object' && p.id).map(p => ({
