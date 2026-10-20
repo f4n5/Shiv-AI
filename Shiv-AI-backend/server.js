@@ -169,88 +169,9 @@ function pickPhrase(tags) {
 }
 
 /** Intent-aware free talk — invents a line, does not paste a full JSON answer */
-function inventReply(prompt, tokens, mode, lane) {
-  const p = String(prompt);
-  const content = tokens.filter(
-    (t) =>
-      !["the", "and", "for", "that", "this", "with", "from", "what", "how", "are", "you", "is", "a", "an", "do", "does", "can", "me", "my", "to", "of", "in", "on"].includes(t)
-  );
-  const topic = content.slice(0, 5).join(" ") || "that";
-  const es = looksSpanish(prompt, tokens);
-  const mark = markovSpeak(tokens, mode === "code" ? 20 : 32);
-  const emojiPool = ["🔥", "💪", "👀", "✨", "👍", ""];
-  const emoji = emojiPool[Math.floor(Math.random() * emojiPool.length)];
 
-  // situational templates that fill with topic + optional markov clause
-  const clause = mark ? mark.replace(/\.$/, "") : null;
-
-  if (lane === "free" || mode === "chat" || mode === "emotion") {
-    if (isGreeting(tokens, prompt) || /^(hey|hi|hello|yo)\b/i.test(p)) {
-      const opts = es
-        ? [`hola. acá estoy ${emoji} ¿qué armamos?`, `buenas. decime y lo encaramos ${emoji}`, `hola — listo cuando vos.`]
-        : [
-            `hey. solid over here ${emoji} what's the move?`,
-            `yo. i'm here — drop whatever's on your mind ${emoji}`,
-            `hey. free to talk or build, your call.`,
-          ];
-      return opts[Math.floor(Math.random() * opts.length)].replace(/\s+/g, " ").trim();
-    }
-    if (/how are you|how r u|como estas|cómo estás/i.test(p)) {
-      return es
-        ? `bien, enfocado. vos? ${emoji}`
-        : `good. locked in. you? ${emoji}`.replace(/\s+/g, " ").trim();
-    }
-    if (/thank|gracias|thx/i.test(p)) {
-      return es ? `de nada. cuando quieras seguimos ${emoji}` : `anytime. that's what i'm for ${emoji}`.trim();
-    }
-    if (/bye|chau|goodbye|see you|gn\b/i.test(p)) {
-      return es ? `chau. acá quedo.` : `later. i don't leave — just quiet until you're back.`;
-    }
-    if (/bored|aburrido/i.test(p)) {
-      return `bored is free real estate. want a small build, a weird idea, or just talk ${emoji}?`;
-    }
-    if (/stuck|help|problem|issue|broken|error|fail/i.test(p)) {
-      const bit = clause || pickPhrase(["chat", "basic", "learned"]) || "split it into one next step";
-      return `i hear you on **${topic}**. try this angle: ${bit}. if it's wrong, rewrite me and i'll learn.`;
-    }
-    if (/what do you think|opinion|should i/i.test(p)) {
-      return `on **${topic}**: ${clause || "i'd keep it simple and ship a small version first"}. correct me if that misses your goal.`;
-    }
-    if (/who are you|what are you|are you ai/i.test(p)) {
-      return `shiv. his ai. i talk free, learn when you correct me, and stay on the work.`;
-    }
-    // general free invention
-    if (clause && content.length) {
-      const frames = [
-        `on **${topic}** — ${clause}. ${emoji}`,
-        `my take: ${clause}. topic stays **${topic}**. say if that's off.`,
-        `${clause} — that's where i land on **${topic}** ${emoji}`,
-        `thinking out loud on **${topic}**: ${clause}. train me if you want a different line.`,
-      ];
-      return frames[Math.floor(Math.random() * frames.length)].replace(/\s+/g, " ").trim();
-    }
-    if (clause) {
-      return `${clause} ${emoji}`.trim();
-    }
-    const soft = pickPhrase(["chat", "basic", "emotion", "learned"]);
-    if (soft) return soft + (emoji ? " " + emoji : "");
-    return es
-      ? `sobre **${topic}** todavía estoy armando la frase. corregime y aprendo.`
-      : `on **${topic}** i don't have a clean line yet — correct me and i lock it.`;
-  }
-
-  if (mode === "comprehensive" || mode === "compare") {
-    const bit = clause || pickPhrase(["comprehensive", "compare", "basic"]) || "";
-    return bit
-      ? `here's a free-form pass on **${topic}**: ${bit}. expand or correct via teach.`
-      : `i can outline **${topic}** once you train a fuller sample — or correct a draft.`;
-  }
-
-  if (mode === "code" || lane === "code") {
-    return `no locked snippet for **${topic}** yet. paste the right code under teach / Train AI and i'll reuse the pattern.`;
-  }
-
-  return clause || `still forming a line for **${topic}**. correct me.`;
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
 }
 
 function readJson(file, fallback) {
@@ -270,15 +191,9 @@ function writeJson(file, data) {
   }
 }
 
-function uid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
-}
-
 function persistLearned() {
   const learned = samples.filter((s) => s.source === "learned");
-  // keep last 2000 learned max
-  const trimmed = learned.slice(-2000);
-  writeJson(LEARNED_PATH, trimmed);
+  writeJson(LEARNED_PATH, learned.slice(-2000));
 }
 
 function persistWords() {
@@ -344,7 +259,7 @@ function isGreeting(tokens, prompt) {
     "gm", "gn", "hru", "wyd",
   ]);
   const p = String(prompt).toLowerCase().trim()
-    .replace(/[🔥👋☀️💪😂👀✨❤️💜🔥]+/g, "")
+    .replace(/[\u{1F300}-\u{1FAFF}]/gu, "")
     .replace(/[!?.,]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -357,78 +272,22 @@ function isGreeting(tokens, prompt) {
 function isCasualTalk(prompt, tokens) {
   const p = String(prompt).toLowerCase();
   const patterns = [
-    /how are you/, /how r u/, /how's it going/, /how is it going/,
-    /what'?s up/, /what are you doing/, /you there/, /are you there/,
-    /thank/, /thanks/, /thx/, /bye/, /goodbye/, /see you/, /good night/, /good morning/,
-    /i'?m bored/, /i'?m tired/, /i'?m back/, /miss you/, /love you/,
-    /como estas/, /cómo estás/, /que tal/, /qué tal/, /gracias/, /chau/,
-    /let'?s go/, /lets build/, /you'?re the best/, /you'?re cool/, /you'?re funny/,
-    /talk to me/, /be honest/, /don'?t lie/, /make me laugh/, /i did it/, /it works/,
+    /how are you/, /how r u/, /how's it going/, /what'?s up/, /thank/, /thanks/, /bye/, /goodbye/,
+    /i'?m bored/, /i'?m tired/, /como estas/, /cómo estás/, /gracias/, /let'?s go/,
   ];
-  if (patterns.some((re) => re.test(p))) return true;
-  if (tokens.length <= 5 && tokens.some((t) => ["hru", "wyd", "lol", "lmao", "brb", "gm", "gn"].includes(t))) return true;
-  return false;
+  return patterns.some((re) => re.test(p));
 }
 
-/** Detect intent mode from prompt */
 function detectMode(prompt, tokens) {
   const p = String(prompt).toLowerCase();
   const has = (arr) => arr.some((k) => p.includes(k) || tokens.includes(k));
-
-  if (
-    has([
-      "compare", "comparison", "vs", "versus", "difference", "differ", "contrast",
-      "comparar", "comparacion", "diferencia", "diferencias", "contra",
-    ])
-  ) {
-    return "compare";
-  }
-  if (
-    has([
-      "synonym", "synonyms", "antonym", "antonyms", "word union", "related words", "similar words",
-      "sinonimo", "sinónimo", "sinonimos", "antonimo", "antónimo", "palabras relacionadas",
-    ])
-  ) {
-    return "wordunion";
-  }
-  if (
-    has([
-      "search", "buscar", "lookup", "look up", "define", "definition", "definicion",
-      "qué es", "que es", "qué significa", "que significa", "meaning of", "what is a ", "what is an ",
-    ])
-  ) {
-    return "search";
-  }
-  if (
-    has([
-      "explain", "how does", "how do", "why does", "comprehensive", "in detail", "overview",
-      "explica", "explicar", "como funciona", "cómo funciona", "por que", "por qué", "detalle",
-    ])
-  ) {
-    return "comprehensive";
-  }
-  if (
-    has([
-      "code", "snippet", "function", "script", "lua", "luau", "python", "javascript", "c++", "cpp",
-      "codigo", "código", "funcion", "función", "```",
-    ])
-  ) {
-    return "code";
-  }
-  if (
-    has([
-      "feel", "feeling", "emotion", "mood", "sad", "angry", "lonely", "anxious", "tired", "bored",
-      "siento", "emocion", "emoción", "triste", "enojado", "ansioso", "cansado", "aburrido",
-    ])
-  ) {
-    return "emotion";
-  }
-  if (tokens.length <= 3 && has(["happy", "feliz", "sad", "triste"])) {
-    return "emotion";
-  }
-  if (isCasualTalk(prompt, tokens) || isGreeting(tokens, prompt)) {
-    return "chat";
-  }
+  if (has(["compare", "vs", "versus", "difference", "comparar", "diferencia"])) return "compare";
+  if (has(["synonym", "synonyms", "antonym", "sinonimo", "sinónimo"])) return "wordunion";
+  if (has(["search", "buscar", "define", "definition", "qué es", "que es", "meaning of"])) return "search";
+  if (has(["explain", "how does", "how do", "why does", "explica", "como funciona", "cómo funciona"])) return "comprehensive";
+  if (has(["code", "snippet", "lua", "luau", "python", "javascript", "c++", "cpp", "codigo", "código"])) return "code";
+  if (has(["feel", "feeling", "emotion", "sad", "angry", "lonely", "anxious", "tired", "siento", "triste"])) return "emotion";
+  if (isCasualTalk(prompt, tokens) || isGreeting(tokens, prompt)) return "chat";
   return "chat";
 }
 
@@ -437,7 +296,6 @@ function scoreSample(promptTokens, sample, mode) {
   const set = new Set(qTokens);
   let score = 0;
   let overlap = 0;
-  // keep pronouns for chat/emotion so "how are you" still matches
   const stopHard = new Set([
     "what", "is", "a", "an", "the", "to", "of", "in", "on", "for", "and", "or",
     "que", "es", "de", "la", "el", "un", "una", "por", "con", "show", "please", "can",
@@ -459,12 +317,10 @@ function scoreSample(promptTokens, sample, mode) {
       overlap += 0.5;
     }
   }
-
   if (useTokens.length) {
     const covered = useTokens.filter((t) => set.has(t)).length;
     score += (covered / useTokens.length) * 8;
   }
-
   const qOnly = tokenize(sample.q);
   if (useTokens.length && qOnly.length) {
     const qSet = new Set(qOnly);
@@ -473,63 +329,36 @@ function scoreSample(promptTokens, sample, mode) {
     else if (inter === useTokens.length) score += 12;
     else if (inter >= Math.ceil(useTokens.length * 0.75)) score += 6;
   }
-
-  // weak overlap kill — main anti-nonsense
   if (useTokens.length >= 1 && overlap < 1) score *= 0.05;
   if (useTokens.length >= 2 && overlap < 1.5) score *= 0.25;
-  if (useTokens.length >= 3 && overlap < 2) score *= 0.45;
-  // pure noise prompts (no real token hits) die
   if (overlap < 1 && useTokens.length >= 2) score = 0;
 
   const tag = (sample.tag || "").toLowerCase();
   if (tag && promptTokens.includes(tag)) score += 5;
-
-  const modeTagBoost = {
-    compare: ["compare", "comparison"],
-    comprehensive: ["comprehensive", "basic"],
-    search: ["search"],
-    code: ["code", "lua", "python", "js", "cpp"],
-    emotion: ["emotion"],
-    chat: ["basic", "learned", "chat"],
-    wordunion: ["basic", "search"],
-  };
-  const boostTags = modeTagBoost[mode] || [];
-  if (boostTags.includes(tag)) score += 5;
   if (mode === "code" && (sample.source || "").includes("code")) score += 5;
   if (mode === "emotion" && (sample.source || "").includes("emotion")) score += 5;
   if (mode === "compare" && (sample.source || "").includes("comparison")) score += 10;
   if (mode === "comprehensive" && (sample.source || "").includes("comprehensive")) score += 10;
-  if (mode === "search" && (sample.source || "").includes("search")) score += 10;
   if (mode === "chat" && (sample.source || "").includes("conversational")) score += 12;
   if (mode === "chat" && tag === "chat") score += 6;
-
-  if ((tag === "code" || (sample.source || "").includes("code")) && mode !== "code") {
-    if (overlap < 2.5) score *= 0.15;
-  }
-
-  if ((sample.q || "").toLowerCase().includes("computers work") && !useTokens.includes("computer")) {
-    score *= 0.15;
-  }
-
-  // learned samples that actually matched before get a small boost
+  if ((tag === "code" || (sample.source || "").includes("code")) && mode !== "code" && overlap < 2.5) score *= 0.15;
   if (sample.source === "learned" && overlap >= 2) score += 2 + Math.min(3, (sample.hits || 0) * 0.3);
-
   score += Math.min(0.5, (sample.a || "").length / 5000);
   return { score, overlap };
 }
 
 function buildThink(mode, tokens, prompt) {
   const top = tokens.slice(0, 8).join(", ") || "(none)";
-  const modeLabel = {
-    compare: "comparison",
-    comprehensive: "comprehensive explanation",
-    search: "search / definition",
-    code: "code",
-    emotion: "emotion / tone",
-    wordunion: "word union",
-    chat: "general chat",
-  }[mode] || mode;
-  return `think: mode=${modeLabel} · keys=[${top}] · prompt_len=${String(prompt).length}`;
+  return `mode=${mode} · keys=[${top}] · len=${String(prompt).length}`;
+}
+
+function looksSpanish(prompt, tokens) {
+  const p = String(prompt).toLowerCase();
+  if (["qué", "cómo", "hola", "gracias", "por qué", "porque", "buscar", "significa"].some((h) => p.includes(h))) return true;
+  const es = new Set(["hola", "que", "como", "por", "para", "con", "una", "buscar", "gracias", "buenas"]);
+  let n = 0;
+  for (const t of tokens) if (es.has(t)) n++;
+  return n >= 2;
 }
 
 function httpGetJson(urlStr, timeoutMs = 4500) {
@@ -549,95 +378,39 @@ function httpGetJson(urlStr, timeoutMs = 4500) {
         res.on("data", (c) => chunks.push(c));
         res.on("end", () => {
           const raw = Buffer.concat(chunks).toString("utf8");
-          if (res.statusCode && res.statusCode >= 400) {
-            return reject(new Error("http " + res.statusCode));
-          }
-          try {
-            resolve(JSON.parse(raw));
-          } catch (e) {
-            reject(e);
-          }
+          if (res.statusCode && res.statusCode >= 400) return reject(new Error("http " + res.statusCode));
+          try { resolve(JSON.parse(raw)); } catch (e) { reject(e); }
         });
       }
     );
     req.on("error", reject);
-    req.on("timeout", () => {
-      req.destroy();
-      reject(new Error("timeout"));
-    });
+    req.on("timeout", () => { req.destroy(); reject(new Error("timeout")); });
   });
-}
-
-function looksSpanish(prompt, tokens) {
-  const p = String(prompt).toLowerCase();
-  const hits = [
-    "qué", "que", "cómo", "como", "por qué", "porque", "hola", "gracias", "buscar",
-    "significa", "definición", "definicion", "español", "hola", "sí", "si",
-  ];
-  if (hits.some((h) => p.includes(h))) return true;
-  const esTokens = new Set([
-    "hola", "que", "como", "por", "para", "con", "una", "uno", "esto", "esta",
-    "buscar", "significa", "gracias", "buenas",
-  ]);
-  let n = 0;
-  for (const t of tokens) if (esTokens.has(t)) n++;
-  return n >= 2;
 }
 
 async function dictLookup(word, preferEs) {
   const w = String(word || "").trim().toLowerCase();
   if (!w || w.length < 2) return null;
-
   if (!preferEs) {
     try {
-      const data = await httpGetJson(
-        "https://api.dictionaryapi.dev/api/v2/entries/en/" + encodeURIComponent(w)
-      );
+      const data = await httpGetJson("https://api.dictionaryapi.dev/api/v2/entries/en/" + encodeURIComponent(w));
       if (Array.isArray(data) && data[0]) {
         const e = data[0];
-        const meanings = (e.meanings || []).slice(0, 2);
-        const parts = [];
-        parts.push(`**${e.word}**` + (e.phonetic ? ` · ${e.phonetic}` : ""));
-        for (const m of meanings) {
+        const parts = [`**${e.word}**` + (e.phonetic ? ` · ${e.phonetic}` : "")];
+        for (const m of (e.meanings || []).slice(0, 2)) {
           const defs = (m.definitions || []).slice(0, 2).map((d) => d.definition);
           parts.push(`_${m.partOfSpeech || "—"}:_ ${defs.join(" · ")}`);
-          if (m.synonyms && m.synonyms.length) {
-            parts.push(`synonyms: ${m.synonyms.slice(0, 6).join(", ")}`);
-          }
-          if (m.antonyms && m.antonyms.length) {
-            parts.push(`antonyms: ${m.antonyms.slice(0, 4).join(", ")}`);
-          }
         }
         return { lang: "en", text: parts.join("\n"), word: e.word };
       }
-    } catch {
-      /* fall through */
-    }
+    } catch (_) {}
   }
-
-  try {
-    const data = await httpGetJson(
-      "https://api.dictionaryapi.dev/api/v2/entries/es/" + encodeURIComponent(w)
-    );
-    if (Array.isArray(data) && data[0]) {
-      const e = data[0];
-      const parts = [`**${e.word}**`];
-      for (const m of (e.meanings || []).slice(0, 2)) {
-        const defs = (m.definitions || []).slice(0, 2).map((d) => d.definition);
-        parts.push(`_${m.partOfSpeech || "—"}_: ${defs.join(" · ")}`);
-      }
-      return { lang: "es", text: parts.join("\n"), word: e.word };
-    }
-  } catch {
-    /* ignore */
-  }
-
   if (wordSet.has(w)) {
     return {
       lang: preferEs ? "es" : "en",
       text: preferEs
-        ? `**${w}** está en el vocabulario local (sin definición RAE en vivo). Entrena un Q→A o usa más contexto.`
-        : `**${w}** is in the local word list (no live definition). Add a Train AI sample for a richer answer.`,
+        ? `**${w}** está en el vocabulario local.`
+        : `**${w}** is in the local word list.`,
       word: w,
       local: true,
     };
@@ -648,17 +421,11 @@ async function dictLookup(word, preferEs) {
 function extractLookupWord(prompt, tokens) {
   const p = String(prompt);
   const m =
-    p.match(
-      /(?:define|definition|definici[oó]n|meaning of|qu[eé]\s+es(?:\s+un|\s+una)?|qu[eé]\s+significa|search|buscar|synonym(?:s)?\s+(?:for\s+)?|antonym(?:s)?\s+(?:for\s+)?)\s*["']?([a-zA-ZñÑáéíóúÁÉÍÓÚ0-9_+#.-]{2,})/i
-    ) ||
+    p.match(/(?:define|definition|meaning of|qu[eé]\s+es(?:\s+un|\s+una)?|search|synonym(?:s)?\s+(?:for\s+)?)\s*["']?([a-zA-ZñÑ0-9_+#.-]{2,})/i) ||
     p.match(/["']([a-zA-ZñÑ]{2,})["']/) ||
     null;
   if (m) return m[1].toLowerCase();
-  const stop = new Set([
-    "what", "is", "a", "an", "the", "de", "la", "el", "un", "una", "que", "qué", "como", "cómo",
-    "search", "buscar", "define", "please", "por", "favor", "me", "you", "for", "synonym", "synonyms",
-    "antonym", "antonyms", "related", "words", "word", "union", "similar",
-  ]);
+  const stop = new Set(["what", "is", "a", "an", "the", "search", "define", "synonym", "for", "you", "me"]);
   for (let i = tokens.length - 1; i >= 0; i--) {
     if (!stop.has(tokens[i]) && tokens[i].length > 2) return tokens[i];
   }
@@ -669,66 +436,33 @@ function wordUnionLocal(word) {
   const w = String(word).toLowerCase();
   const map = {
     happy: ["glad", "joyful", "content", "cheerful"],
-    sad: ["unhappy", "down", "blue", "miserable"],
-    fast: ["quick", "rapid", "swift", "speedy"],
-    slow: ["sluggish", "leisurely", "unhurried"],
-    code: ["program", "script", "source", "implementation"],
-    bug: ["defect", "error", "fault", "issue"],
-    aim: ["target", "point", "focus", "lock"],
-    memory: ["ram", "storage", "address space"],
-    strong: ["powerful", "sturdy", "robust"],
-    weak: ["fragile", "frail", "feeble"],
+    sad: ["unhappy", "down", "blue"],
+    code: ["program", "script", "source"],
+    bug: ["defect", "error", "fault"],
   };
-  if (map[w]) {
-    return `**${w}** word union\nsynonyms / related: ${map[w].join(", ")}\n(local union — expand via Train AI)`;
-  }
-  const related = [];
-  for (const x of wordSet) {
-    if (x === w) continue;
-    if (x.startsWith(w.slice(0, 3)) && Math.abs(x.length - w.length) <= 4) related.push(x);
-    if (related.length >= 8) break;
-  }
-  if (related.length) {
-    return `**${w}** word union (local)\nrelated: ${related.join(", ")}`;
-  }
+  if (map[w]) return `**${w}** related: ${map[w].join(", ")}`;
   return null;
 }
 
-/** Auto-learn high-confidence answers so next time is stronger */
 function maybeAutoLearn(prompt, answer, mode, score, sampleId) {
-  if (!prompt || !answer) return false;
-  if (score < 12) return false; // only strong matches
+  if (!prompt || !answer || score < 12) return false;
   const key = tokenize(prompt).slice(0, 6).join(" ");
   if (!key || key.length < 4) return false;
   const now = Date.now();
-  if (recentLearn.has(key) && now - recentLearn.get(key) < 60_000) return false;
+  if (recentLearn.has(key) && now - recentLearn.get(key) < 60000) return false;
   recentLearn.set(key, now);
-
-  // don't duplicate near-identical q
-  const exists = samples.some((s) => {
-    const a = tokenize(s.q).join(" ");
-    return a === key || s.q.toLowerCase().trim() === prompt.toLowerCase().trim();
-  });
+  const exists = samples.some((s) => tokenize(s.q).join(" ") === key);
   if (exists) {
-    // bump hits on existing
-    const hit = samples.find(
-      (s) => s.id === sampleId || tokenize(s.q).join(" ") === key
-    );
+    const hit = samples.find((s) => s.id === sampleId || tokenize(s.q).join(" ") === key);
     if (hit) {
       hit.hits = (hit.hits || 0) + 1;
       if (hit.source === "learned") persistLearned();
     }
     return false;
   }
-
-  // store a cleaned answer without think/meta footer
-  let clean = String(answer)
-    .replace(/^think:.*$/im, "")
-    .replace(/\n*_matched ·[\s\S]*$/i, "")
-    .trim();
+  let clean = String(answer).replace(/^think:.*$/im, "").replace(/\n*_matched ·[\s\S]*$/i, "").trim();
   if (clean.length < 8 || clean.length > 4000) return false;
-
-  const sample = {
+  samples.push({
     id: uid(),
     q: prompt.slice(0, 240),
     a: clean,
@@ -736,28 +470,21 @@ function maybeAutoLearn(prompt, answer, mode, score, sampleId) {
     at: now,
     source: "learned",
     hits: 1,
-  };
-  samples.push(sample);
+  });
   persistLearned();
   rebuildBrain();
-  console.log(`[shiv-ai] auto-learned q="${sample.q.slice(0, 40)}…" score=${score.toFixed(1)}`);
   return true;
 }
 
-/** Harvest content words from a successful exchange into vocab */
 function harvestWords(prompt, answer) {
   const stop = new Set([
     "the", "and", "for", "that", "this", "with", "from", "your", "have", "are", "was", "were",
     "will", "can", "not", "but", "you", "all", "any", "how", "what", "when", "where", "who",
-    "why", "which", "into", "than", "then", "them", "they", "their", "there", "here", "about",
-    "just", "like", "some", "more", "also", "only", "over", "such", "other", "into", "code",
   ]);
   const tokens = tokenize(prompt + " " + String(answer).slice(0, 400));
   let added = 0;
   for (const t of tokens) {
-    if (t.length < 3 || t.length > 24) continue;
-    if (stop.has(t)) continue;
-    if (/^\d+$/.test(t)) continue;
+    if (t.length < 3 || t.length > 24 || stop.has(t) || /^\d+$/.test(t)) continue;
     if (!wordSet.has(t)) {
       wordSet.add(t);
       added++;
@@ -767,10 +494,196 @@ function harvestWords(prompt, answer) {
   return added;
 }
 
+
+function understandMessage(prompt, tokens, mode) {
+  const raw = String(prompt || "").trim();
+  const lower = raw.toLowerCase();
+  const stop = new Set([
+    "the", "and", "for", "that", "this", "with", "from", "what", "how", "are", "you", "is", "a", "an",
+    "do", "does", "can", "me", "my", "to", "of", "in", "on", "we", "i", "it", "at", "be", "or", "as",
+    "was", "were", "will", "just", "like", "about", "please", "por", "que", "qué", "una", "uno",
+    "to", "get", "got", "have", "has", "had", "been", "being", "them", "they", "their",
+  ]);
+  const content = tokens.filter((t) => !stop.has(t) && t.length > 1);
+  const topic = content.slice(0, 6).join(" ") || null;
+
+  let intent = "chat";
+  if (isGreeting(tokens, prompt) || /^(hey|hi|hello|yo|hola|sup)\b/i.test(lower)) intent = "greet";
+  else if (/how are you|how r u|como estas|cómo estás|how's it going|how is it going/i.test(lower)) intent = "checkin";
+  else if (/thank|gracias|thx/i.test(lower)) intent = "thanks";
+  else if (/bye|chau|goodbye|see you|good night|\bgn\b/i.test(lower)) intent = "bye";
+  else if (/who are you|what are you|are you (an )?ai/i.test(lower)) intent = "identity";
+  else if (/bored|aburrido/i.test(lower)) intent = "bored";
+  else if (/stuck|help me|problem|issue|broken|error|fail|fix/i.test(lower)) intent = "help";
+  else if (/what do you think|opinion|should i|should we/i.test(lower)) intent = "opinion";
+  else if (/explain|how does|how do|why does|what is|qué es|que es|define/i.test(lower)) intent = "explain";
+  else if (/compare|vs\.?|versus|difference/i.test(lower)) intent = "compare";
+  else if (/code|snippet|script|function|lua|python|cpp|c\+\+/i.test(lower) || mode === "code") intent = "code";
+  else if (/feel|sad|happy|anxious|tired|lonely|emocion|triste/i.test(lower) || mode === "emotion") intent = "emotion";
+  else if (/build|make|create|project|tonight|today/i.test(lower)) intent = "build";
+  else if (content.length >= 2) intent = "topic";
+  else intent = "chat";
+
+  const es = looksSpanish(prompt, tokens);
+  const question = /\?|^(what|why|how|when|where|who|can|do|does|is|are|should)\b/i.test(raw);
+
+  // verify: message is usable
+  const verified = raw.length >= 1 && !/^[\W_]+$/.test(raw);
+  let summary;
+  if (!verified) summary = "empty or noise";
+  else if (intent === "greet") summary = "user is greeting";
+  else if (intent === "checkin") summary = "user asks how i am";
+  else if (intent === "thanks") summary = "user is thanking";
+  else if (intent === "bye") summary = "user is leaving";
+  else if (intent === "identity") summary = "user asks who i am";
+  else if (intent === "help") summary = topic ? `user needs help with ${topic}` : "user needs help";
+  else if (intent === "opinion") summary = topic ? `user wants an opinion on ${topic}` : "user wants an opinion";
+  else if (intent === "explain") summary = topic ? `user wants ${topic} explained` : "user wants an explanation";
+  else if (intent === "compare") summary = topic ? `user wants a comparison about ${topic}` : "user wants a comparison";
+  else if (intent === "code") summary = topic ? `user wants code related to ${topic}` : "user wants code";
+  else if (intent === "emotion") summary = "user is sharing a feeling";
+  else if (intent === "build") summary = topic ? `user wants to build ${topic}` : "user wants to build something";
+  else if (intent === "topic") summary = topic ? `user is talking about ${topic}` : "user is chatting";
+  else summary = topic ? `user said something about ${topic}` : "user is chatting";
+
+  return {
+    raw,
+    lower,
+    tokens,
+    content,
+    topic,
+    intent,
+    mode,
+    es,
+    question,
+    short: tokens.length <= 3,
+    verified,
+    summary,
+  };
+}
+
+/** Natural speak after verify + understand — coherent lines only */
+function inventReply(prompt, tokens, mode, lane, ranked) {
+  const u = understandMessage(prompt, tokens, mode);
+  if (!u.verified) {
+    return u.es ? "no te entendí. decime de nuevo en una frase." : "didn't catch that. say it once more in a plain sentence.";
+  }
+
+  const topic = u.topic;
+  const emojiPool = ["", "", "", "🔥", "👍"];
+  const emoji = emojiPool[Math.floor(Math.random() * emojiPool.length)];
+
+  // only use trained substance when it actually fits (high score, clean, not random)
+  let substance = null;
+  if (Array.isArray(ranked)) {
+    for (const r of ranked.slice(0, 8)) {
+      if (!r || !r.a) continue;
+      if ((r.score || 0) < 18) continue;
+      if ((r.overlap || 0) < 1.5 && (r.score || 0) < 30) continue;
+      let a = String(r.a)
+        .replace(/```[\s\S]*?```/g, "")
+        .replace(/^think:.*$/gim, "")
+        .replace(/_matched[\s\S]*$/i, "")
+        .replace(/\n+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (a.length < 8 || a.length > 160) continue;
+      if (/^on \*\*/i.test(a) || /that's where i land/i.test(a)) continue; // kill old weird frames
+      if (/local word list|no live definition|no strong training/i.test(a)) continue;
+      substance = a;
+      break;
+    }
+  }
+
+  // —— speak by verified intent ——
+  if (u.intent === "greet") {
+    if (u.es) return `hola. acá estoy${emoji ? " " + emoji : ""}. ¿qué necesitás?`;
+    const opts = [
+      `hey${emoji ? " " + emoji : ""}. what's up?`,
+      `hey. solid here — talk or build, your call.`,
+      `yo. i'm here.`,
+    ];
+    return opts[Math.floor(Math.random() * opts.length)];
+  }
+  if (u.intent === "checkin") {
+    return u.es ? "bien, enfocado. ¿vos?" : "good. locked in. you?";
+  }
+  if (u.intent === "thanks") {
+    return u.es ? "de nada. cuando quieras seguimos." : "anytime. that's what i'm for.";
+  }
+  if (u.intent === "bye") {
+    return u.es ? "chau. acá quedo." : "later. quiet until you're back.";
+  }
+  if (u.intent === "identity") {
+    return "i'm shiv — local free brain. i verify what you say, answer straight, and learn when you correct me.";
+  }
+  if (u.intent === "bored") {
+    return "bored is free real estate. small build, weird idea, or just talk — pick one.";
+  }
+    if (u.intent === "help") {
+    const cleanTopic = (topic || "").replace(/\b(feel|stuck|help|need|project)\b/g, " ").replace(/\s+/g, " ").trim();
+    return cleanTopic
+      ? `i hear you're stuck on ${cleanTopic}. drop the exact break — error text, the step that fails, or the goal — and i'll give one next move.`
+      : "i hear you're stuck. drop the exact break — error text, the step that fails, or the goal — and i'll give one next move.";
+  }
+  if (u.intent === "opinion") {
+    if (substance) return substance;
+    return "my take: start small, ship one working piece, then expand. if you want a different angle, say the goal.";
+  }
+  if (u.intent === "build") {
+    return topic
+      ? `for building ${topic}: start with the smallest piece that runs, name it, then expand. want a concrete first step?`
+      : "name the thing you want to build and the platform — i'll sketch a first step.";
+  }
+  if (u.intent === "explain") {
+    if (substance) return substance;
+    return topic
+      ? `i can explain ${topic}. which angle — how it works, why it matters, or how to use it?`
+      : "what should i explain? name the thing and the angle.";
+  }
+  if (u.intent === "compare") {
+    if (substance) return substance;
+    return "name the two sides and what matters most (speed, simplicity, risk) and i'll compare them.";
+  }
+  if (u.intent === "code" || lane === "code") {
+    if (substance && /`/.test(String(ranked && ranked[0] && ranked[0].a))) {
+      return String(ranked[0].a).slice(0, 1200);
+    }
+    return topic
+      ? `for ${topic} code: paste a snippet or say the language + goal and i'll answer — or teach the exact sample.`
+      : "paste the snippet or say language + goal.";
+  }
+  if (u.intent === "emotion") {
+    if (substance && /rough day|quiet room|chest tight|allowed to sit/i.test(substance)) return substance;
+    return "noted. sit with it or put it into a small task — either is fine. i'm here.";
+  }
+
+  // topic / general chat
+  if (substance && u.question) {
+    return substance;
+  }
+  if (substance && !u.short) {
+    return substance;
+  }
+  if (u.question && topic) {
+    return `you asked about ${topic}. i don't have a sharp trained answer yet — teach one, or rephrase with more detail.`;
+  }
+  if (u.short) {
+    return substance || "got it. add one more detail and i'll answer cleaner.";
+  }
+  if (topic) {
+    if (u.question) {
+      return `about ${topic}: i don't have a solid trained answer yet. add detail or teach the reply you want.`;
+    }
+    return `got it — ${topic}. what do you want out of this: a short answer, steps, or code?`;
+  }
+  return "i'm listening. say what's on your mind.";
+}
+
 /** Mix fragments + invent free-form reply (self-speak) */
 function composeFromParts(prompt, tokens, mode, ranked, lane) {
-  // primary: invent original sentence from markov + intent
-  const invented = inventReply(prompt, tokens, mode, lane);
+  // primary: verify → understand → speak (ranked used as substance)
+  const invented = inventReply(prompt, tokens, mode, lane, ranked);
   // secondary candidates from nearby samples (for picker), not as main voice
   const bits = [];
   for (const r of ranked.slice(0, 5)) {
@@ -804,9 +717,14 @@ async function generateReply(prompt, fileContext, chatMode) {
     // free chat: prefer chat / emotion / comprehensive situational talk
     if (mode === "code") mode = "chat";
   }
+  const understood = understandMessage(prompt, tokens, mode);
   const thinkBase = buildThink(mode, tokens, prompt);
-  const think = `think: lane=${lane} · ` + thinkBase.replace(/^think:\s*/i, "");
-  const es = looksSpanish(prompt, tokens);
+  const think =
+    `think: verify=ok · intent=${understood.intent}` +
+    (understood.topic ? ` · topic=${understood.topic}` : "") +
+    ` · ${understood.summary}` +
+    ` · lane=${lane}`;
+  const es = understood.es;
 
   const greetMap = {
     hi: "hey! what's up? 🔥",
@@ -890,7 +808,7 @@ async function generateReply(prompt, fileContext, chatMode) {
     ];
     return {
       ok: true,
-      text: `${think}\n\n${text}`,
+      text: text,
       score: 99,
       sampleId: "greet",
       mode: "chat",
@@ -987,14 +905,17 @@ async function generateReply(prompt, fileContext, chatMode) {
   }
 
   if (allowLock) {
-    let out = `${think}\n\n${best.a}`;
+    // free chat: plain answer only; code/other can keep light meta
+    let out = lane === "free" ? best.a : `${think}\n\n${best.a}`;
     if (tokens.includes("synonym") || tokens.includes("related")) {
       const w = extractLookupWord(prompt, tokens);
       const u = wordUnionLocal(w);
       if (u) out += "\n\n" + u;
     }
     if (fileContext) out += "\n\n(from your project)\n" + fileContext;
-    out += `\n\n_matched · score ${bestScore.toFixed(1)} · overlap ${bestOverlap.toFixed(1)} · tag ${best.tag || "—"} · mode ${mode} · source ${best.source || "seed"}_`;
+    if (lane !== "free") {
+      out += `\n\n_matched · score ${bestScore.toFixed(1)} · overlap ${bestOverlap.toFixed(1)} · tag ${best.tag || "—"} · mode ${mode} · source ${best.source || "seed"}_`;
+    }
     // bump hits
     const live = samples.find((s) => s.id === best.id);
     if (live) live.hits = (live.hits || 0) + 1;
@@ -1017,9 +938,8 @@ async function generateReply(prompt, fileContext, chatMode) {
 
   // free / weak match → invent original sentence (markov + intent), user corrects
   const composed = composeFromParts(prompt, tokens, mode, ranked, lane);
-  let out = `${think}\n\n${composed.text}`;
+  let out = composed.text;
   if (fileContext) out += "\n\n(from your project)\n" + fileContext;
-  out += `\n\n_self-spoke · invented · mode ${mode}_`;
   harvestWords(prompt, composed.text);
   const invCand = {
     rank: 1,
