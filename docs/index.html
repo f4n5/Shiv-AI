@@ -354,6 +354,81 @@
       color: var(--muted);
       margin-top: 4px;
     }
+    .fb-box {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      background: rgba(251, 191, 36, 0.05);
+    }
+    .fb-box.selfspeak {
+      border-color: rgba(61, 214, 198, 0.35);
+      background: rgba(61, 214, 198, 0.06);
+    }
+    .fb-title {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--warn);
+      margin-bottom: 8px;
+    }
+    .fb-box.selfspeak .fb-title { color: var(--accent); }
+    .fb-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+    .fb-row button {
+      font-size: 0.78rem;
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .fb-row button.yes:hover { border-color: rgba(74,222,128,0.5); color: var(--ok); }
+    .fb-row button.no:hover { border-color: rgba(232,93,93,0.5); color: var(--danger); }
+    .fb-row button.done {
+      opacity: 0.7;
+      pointer-events: none;
+    }
+    .fb-correct {
+      display: none;
+      margin-top: 8px;
+    }
+    .fb-correct.show { display: block; }
+    .fb-correct label {
+      display: block;
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .fb-correct textarea {
+      width: 100%;
+      min-height: 72px;
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 8px 10px;
+      font-family: var(--font);
+      font-size: 0.88rem;
+      resize: vertical;
+    }
+    .fb-correct .fb-save {
+      margin-top: 8px;
+      background: var(--accent2);
+      color: #041210;
+      border: none;
+      padding: 7px 14px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.82rem;
+    }
     @keyframes thinkBounce {
       0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
       40% { transform: translateY(-5px); opacity: 1; }
@@ -996,6 +1071,27 @@
           body += `</div>`;
         }
         if (m.role === 'ai' && !m.thinking) {
+          const showFb = !m.feedbackDone && (m.needsReview || m.composed || true);
+          if (showFb) {
+            const selfCls = m.composed ? ' selfspeak' : '';
+            const title = m.composed
+              ? 'self-spoke (mixed words) — is this correct?'
+              : 'is this how it should be said?';
+            body += `<div class="fb-box${selfCls}" data-fb="${idx}">
+              <div class="fb-title">${title}</div>
+              <div class="fb-row">
+                <button type="button" class="yes" data-act="correct-yes" data-idx="${idx}">correct ✓</button>
+                <button type="button" class="no" data-act="correct-no" data-idx="${idx}">wrong — fix it</button>
+              </div>
+              <div class="fb-correct" id="fb-fix-${idx}">
+                <label>how should it say that?</label>
+                <textarea id="fb-text-${idx}" placeholder="write the right reply…"></textarea>
+                <button type="button" class="fb-save" data-act="correct-save" data-idx="${idx}">save & learn</button>
+              </div>
+            </div>`;
+          } else if (m.feedbackDone) {
+            body += `<div class="fb-box" style="opacity:0.7"><div class="fb-title">${m.feedbackLabel || 'feedback saved'}</div></div>`;
+          }
           body += `<div class="msg-actions">
             <button type="button" data-act="teach" data-idx="${idx}">teach this</button>
             <button type="button" data-act="copy" data-idx="${idx}">copy</button>
@@ -1020,7 +1116,100 @@
         btn.classList.add('ok');
       };
     });
+    log.querySelectorAll('[data-act="correct-yes"]').forEach(btn => {
+      btn.onclick = () => feedbackYes(+btn.dataset.idx);
+    });
+    log.querySelectorAll('[data-act="correct-no"]').forEach(btn => {
+      btn.onclick = () => {
+        const box = document.getElementById('fb-fix-' + btn.dataset.idx);
+        if (box) box.classList.add('show');
+        const ta = document.getElementById('fb-text-' + btn.dataset.idx);
+        const p2 = getProject(activeId);
+        const m = p2 && p2.chats && p2.chats[+btn.dataset.idx];
+        if (ta && m) {
+          // seed with cleaned AI text so he can edit
+          let seed = String(m.text || '')
+            .replace(/^think:.*$/im, '')
+            .replace(/\n*_matched ·[\s\S]*$/i, '')
+            .replace(/\n*_self-speak ·[\s\S]*$/i, '')
+            .trim();
+          if (!ta.value) ta.value = seed;
+          ta.focus();
+        }
+      };
+    });
+    log.querySelectorAll('[data-act="correct-save"]').forEach(btn => {
+      btn.onclick = () => feedbackSave(+btn.dataset.idx);
+    });
     log.scrollTop = log.scrollHeight;
+  }
+
+  async function feedbackYes(idx) {
+    const p = getProject(activeId);
+    if (!p || !p.chats || !p.chats[idx]) return;
+    const m = p.chats[idx];
+    let q = '';
+    for (let i = idx - 1; i >= 0; i--) {
+      if (p.chats[i].role === 'user') { q = p.chats[i].text; break; }
+    }
+    let clean = String(m.text || '')
+      .replace(/^think:.*$/im, '')
+      .replace(/\n*_matched ·[\s\S]*$/i, '')
+      .replace(/\n*_self-speak ·[\s\S]*$/i, '')
+      .trim();
+    if (q && clean) {
+      try {
+        await fetch(API_BASE + '/api/learn', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ q, a: clean, tag: m.composed ? 'composed-ok' : 'confirmed' })
+        });
+      } catch (_) {}
+    }
+    m.feedbackDone = true;
+    m.feedbackLabel = 'marked correct — learned';
+    m.needsReview = false;
+    save(K.projects, projects);
+    renderChat(p);
+  }
+
+  async function feedbackSave(idx) {
+    const p = getProject(activeId);
+    if (!p || !p.chats || !p.chats[idx]) return;
+    const ta = document.getElementById('fb-text-' + idx);
+    const fixed = ta ? ta.value.trim() : '';
+    if (!fixed) {
+      alert('write how it should say it');
+      return;
+    }
+    const m = p.chats[idx];
+    let q = '';
+    for (let i = idx - 1; i >= 0; i--) {
+      if (p.chats[i].role === 'user') { q = p.chats[i].text; break; }
+    }
+    if (!q) {
+      alert('no user prompt found');
+      return;
+    }
+    try {
+      await fetch(API_BASE + '/api/learn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ q, a: fixed, tag: 'corrected' })
+      });
+    } catch (e) {
+      alert('backend offline: ' + (e.message || e));
+      return;
+    }
+    m.text = fixed;
+    m.composed = false;
+    m.feedbackDone = true;
+    m.feedbackLabel = 'corrected & learned';
+    m.needsReview = false;
+    m.picked = true;
+    m.candidates = [];
+    save(K.projects, projects);
+    renderChat(p);
   }
 
   async function pickCandidate(msgIdx, candIdx) {
@@ -1133,9 +1322,12 @@
       mode: meta.mode,
       score: meta.score,
       learned: !!meta.learned,
+      composed: !!meta.composed,
+      needsReview: meta.needsReview !== false,
       candidates: Array.isArray(meta.candidates) ? meta.candidates : [],
       pickHint: meta.pickHint || '',
-      picked: false
+      picked: false,
+      feedbackDone: false
     });
     save(K.projects, projects);
     renderChat(p);
