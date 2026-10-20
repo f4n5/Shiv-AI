@@ -738,24 +738,39 @@
   const ADMIN_PIN = 'yeahimtheownerhereicreateKEYS';
 
   // —— state ——
-  let projects = load(K.projects, []);
-  let samples  = load(K.samples, seedSamples());
-  let activeId = projects[0] ? projects[0].id : null;
-  let activeFile = null;
-  let adminOk = sessionStorage.getItem(K.admin) === '1';
-
   function load(key, fallback) {
     try {
       const raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : fallback;
+      if (raw == null || raw === '') return fallback;
+      const parsed = JSON.parse(raw);
+      if (parsed == null) return fallback;
+      return parsed;
     } catch { return fallback; }
   }
   function save(key, val) {
-    localStorage.setItem(key, JSON.stringify(val));
+    try { localStorage.setItem(key, JSON.stringify(val)); } catch (_) {}
   }
   function uid() {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   }
+
+  function normalizeProjects(list) {
+    if (!Array.isArray(list)) return [];
+    return list.filter(p => p && typeof p === 'object' && p.id).map(p => ({
+      id: String(p.id),
+      name: String(p.name || 'Untitled'),
+      chats: Array.isArray(p.chats) ? p.chats : [],
+      files: Array.isArray(p.files) ? p.files : [{ name: 'main.lua', content: '-- project entry\nprint("ready")\n' }],
+      created: p.created || Date.now()
+    }));
+  }
+
+  let projects = normalizeProjects(load(K.projects, []));
+  let samples  = load(K.samples, null);
+  if (!Array.isArray(samples) || !samples.length) samples = seedSamples();
+  let activeId = projects[0] ? projects[0].id : null;
+  let activeFile = null;
+  let adminOk = sessionStorage.getItem(K.admin) === '1';
 
   function seedSamples() {
     return [
@@ -816,65 +831,121 @@
   }
 
   function renderProjectList() {
+    if (!Array.isArray(projects)) projects = [];
     const list = document.getElementById('project-list');
+    if (!list) return;
     list.innerHTML = '';
     projects.forEach(p => {
       const el = document.createElement('div');
       el.className = 'item' + (p.id === activeId ? ' active' : '');
       el.innerHTML = `<div class="title">${escapeHtml(p.name)}</div>
         <div class="meta">${(p.chats||[]).length} msgs · ${(p.files||[]).length} files</div>`;
-      el.addEventListener('click', () => openProject(p.id));
+      el.addEventListener('click', (e) => {
+        e.preventDefault();
+        openProject(p.id);
+      });
       list.appendChild(el);
     });
-    document.getElementById('stat-projects').textContent = projects.length + ' project' + (projects.length === 1 ? '' : 's');
+    const stat = document.getElementById('stat-projects');
+    if (stat) stat.textContent = projects.length + ' project' + (projects.length === 1 ? '' : 's');
   }
 
   function openProject(id) {
-    activeId = id;
-    activeFile = null;
-    renderProjectList();
-    const p = getProject(id);
-    if (!p) {
-      document.getElementById('ws-empty').style.display = 'flex';
-      document.getElementById('ws-main').style.display = 'none';
-      return;
+    try {
+      activeId = id;
+      activeFile = null;
+      renderProjectList();
+      const p = getProject(id);
+      const empty = document.getElementById('ws-empty');
+      const main = document.getElementById('ws-main');
+      if (!p) {
+        if (empty) empty.style.display = 'flex';
+        if (main) main.style.display = 'none';
+        return;
+      }
+      if (empty) empty.style.display = 'none';
+      if (main) {
+        main.style.display = 'flex';
+        main.style.flexDirection = 'column';
+        main.style.flex = '1';
+        main.style.minHeight = '0';
+      }
+      // ensure chats tab visible
+      document.querySelectorAll('.ws-tabs button').forEach(b => {
+        b.classList.toggle('active', b.dataset.ws === 'chats');
+      });
+      document.querySelectorAll('.ws-body').forEach(b => {
+        b.classList.toggle('active', b.id === 'ws-chats');
+      });
+      renderChat(p);
+      renderFiles(p);
+    } catch (err) {
+      console.error('openProject', err);
+      alert('open project failed: ' + (err && err.message ? err.message : err));
     }
-    document.getElementById('ws-empty').style.display = 'none';
-    const main = document.getElementById('ws-main');
-    main.style.display = 'flex';
-    renderChat(p);
-    renderFiles(p);
   }
 
   function newProject(name) {
-    const p = {
-      id: uid(),
-      name: name || 'Untitled',
-      chats: [],
-      files: [
-        { name: 'main.lua', content: '-- project entry\nprint("ready")\n' }
-      ],
-      created: Date.now()
-    };
-    projects.unshift(p);
-    save(K.projects, projects);
-    openProject(p.id);
+    try {
+      if (!Array.isArray(projects)) projects = [];
+      const p = {
+        id: uid(),
+        name: (name || 'Untitled').slice(0, 64),
+        chats: [],
+        files: [
+          { name: 'main.lua', content: '-- project entry\nprint("ready")\n' }
+        ],
+        created: Date.now()
+      };
+      projects.unshift(p);
+      save(K.projects, projects);
+      openProject(p.id);
+    } catch (err) {
+      console.error('newProject', err);
+      alert('create failed: ' + (err && err.message ? err.message : err));
+    }
   }
 
-  document.getElementById('btn-new-project').onclick =
-  document.getElementById('btn-new-project-2').onclick = () => {
-    document.getElementById('modal-project').classList.add('show');
-    document.getElementById('modal-project-name').value = '';
-    document.getElementById('modal-project-name').focus();
+  function openNewProjectModal() {
+    const modal = document.getElementById('modal-project');
+    if (!modal) return;
+    modal.classList.add('show');
+    const input = document.getElementById('modal-project-name');
+    if (input) {
+      input.value = '';
+      setTimeout(() => input.focus(), 30);
+    }
+  }
+
+  const btnNew1 = document.getElementById('btn-new-project');
+  const btnNew2 = document.getElementById('btn-new-project-2');
+  if (btnNew1) btnNew1.onclick = openNewProjectModal;
+  if (btnNew2) btnNew2.onclick = openNewProjectModal;
+  const btnCancel = document.getElementById('modal-project-cancel');
+  if (btnCancel) btnCancel.onclick = () => {
+    const modal = document.getElementById('modal-project');
+    if (modal) modal.classList.remove('show');
   };
-  document.getElementById('modal-project-cancel').onclick = () => {
-    document.getElementById('modal-project').classList.remove('show');
-  };
-  document.getElementById('modal-project-ok').onclick = () => {
-    const name = document.getElementById('modal-project-name').value.trim() || 'Untitled';
-    document.getElementById('modal-project').classList.remove('show');
+  const btnOk = document.getElementById('modal-project-ok');
+  if (btnOk) btnOk.onclick = () => {
+    const input = document.getElementById('modal-project-name');
+    const name = (input && input.value ? input.value : '').trim() || 'Untitled';
+    const modal = document.getElementById('modal-project');
+    if (modal) modal.classList.remove('show');
     newProject(name);
   };
+  // enter key in modal
+  const nameInput = document.getElementById('modal-project-name');
+  if (nameInput) nameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (btnOk) btnOk.click();
+    }
+  });
+  const modalBg = document.getElementById('modal-project');
+  if (modalBg) modalBg.addEventListener('click', (e) => {
+    if (e.target === modalBg) modalBg.classList.remove('show');
+  });
 
   // —— chat ——
   function renderChat(p) {
@@ -1262,7 +1333,8 @@
     } catch (_) { /* local still saved */ }
   };
 
-  document.getElementById('btn-add-words').onclick = async () => {
+  const btnAddWords = document.getElementById('btn-add-words');
+  if (btnAddWords) btnAddWords.onclick = async () => {
     const raw = document.getElementById('word-add').value.trim();
     if (!raw) return;
     const words = raw.split(/[,\s]+/).map(w => w.trim()).filter(Boolean);
@@ -1327,9 +1399,26 @@
   };
 
   // —— boot ——
-  renderProjectList();
-  if (activeId) openProject(activeId);
-  refreshTrain();
+  try {
+    projects = normalizeProjects(projects);
+    if (!projects.length) {
+      // seed one empty project so the UI is never stuck
+      projects.push({
+        id: uid(),
+        name: 'Main',
+        chats: [],
+        files: [{ name: 'main.lua', content: '-- project entry\nprint("ready")\n' }],
+        created: Date.now()
+      });
+      save(K.projects, projects);
+    }
+    activeId = activeId && getProject(activeId) ? activeId : projects[0].id;
+    renderProjectList();
+    openProject(activeId);
+  } catch (err) {
+    console.error('boot projects', err);
+  }
+  try { refreshTrain(); } catch (err) { console.error('boot train', err); }
 })();
   </script>
 </body>
