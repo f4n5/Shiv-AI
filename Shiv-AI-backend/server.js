@@ -551,6 +551,92 @@ function harvestWords(prompt, answer) {
   return added;
 }
 
+/** Mix fragments + words into a free-form reply (self-speak) */
+function composeFromParts(prompt, tokens, mode, ranked) {
+  const p = String(prompt).toLowerCase();
+  const openers = [
+    "hey.",
+    "alright.",
+    "ok.",
+    "got it.",
+    "yeah.",
+    "mm.",
+  ];
+  const bridges = [
+    "here's how i'd put it:",
+    "mixing what i know:",
+    "from the pieces i have:",
+    "rough take:",
+    "trying this:",
+  ];
+  const closers = [
+    "that land?",
+    "close?",
+    "correct me if off.",
+    "say if that's wrong.",
+    "train me if not.",
+  ];
+  const emojiPool = ["🔥", "💪", "👀", "✨", "👍", ""];
+
+  // pull short phrases from top ranked chat/emotion samples
+  const bits = [];
+  for (const r of ranked.slice(0, 8)) {
+    if (!r || !r.a) continue;
+    let a = String(r.a).replace(/^```[\s\S]*?```/g, "").trim();
+    // take first sentence-ish
+    const cut = a.split(/(?<=[.!?])\s+/)[0] || a;
+    if (cut.length >= 8 && cut.length <= 140) bits.push(cut);
+    if (bits.length >= 3) break;
+  }
+
+  // word mix from prompt content + vocab
+  const stop = new Set(["the", "and", "for", "that", "this", "with", "from", "what", "how", "are", "you", "is", "a", "an"]);
+  const content = tokens.filter((x) => !stop.has(x) && x.length > 2);
+  const related = [];
+  for (const w of content.slice(0, 4)) {
+    for (const x of wordSet) {
+      if (x === w) continue;
+      if (x.startsWith(w.slice(0, Math.min(3, w.length))) && Math.abs(x.length - w.length) <= 4) {
+        related.push(x);
+        if (related.length >= 6) break;
+      }
+    }
+    if (related.length >= 6) break;
+  }
+
+  const opener = openers[Math.floor(Math.random() * openers.length)];
+  const bridge = bridges[Math.floor(Math.random() * bridges.length)];
+  const closer = closers[Math.floor(Math.random() * closers.length)];
+  const emoji = emojiPool[Math.floor(Math.random() * emojiPool.length)];
+
+  let body;
+  if (bits.length >= 2) {
+    body = bits.slice(0, 2).join(" ");
+  } else if (bits.length === 1) {
+    body = bits[0];
+  } else if (mode === "code") {
+    body = "i don't have a clean snippet locked for that yet — drop a sample under Train AI or correct me below.";
+  } else {
+    const topic = content.slice(0, 3).join(" ") || "that";
+    body = related.length
+      ? `on **${topic}** i only have loose words so far: ${related.slice(0, 5).join(", ")}.`
+      : `i don't have a solid line for **${topic}** yet.`;
+  }
+
+  // light emoji on chat
+  if (mode === "chat" && emoji && !/[🔥💪👀✨👍]/.test(body)) {
+    if (Math.random() > 0.45) body = body.replace(/\s*$/, " " + emoji);
+  }
+
+  const text = `${opener} ${bridge} ${body} ${closer}`.replace(/\s+/g, " ").trim();
+  return {
+    text,
+    composed: true,
+    needsReview: true,
+    parts: { bits: bits.slice(0, 3), related: related.slice(0, 6), content },
+  };
+}
+
 async function generateReply(prompt, fileContext) {
   const tokens = tokenize(prompt);
   const pLow = String(prompt)
@@ -707,6 +793,7 @@ async function generateReply(prompt, fileContext) {
     if (live) live.hits = (live.hits || 0) + 1;
     const learned = maybeAutoLearn(prompt, out, mode, bestScore, best.id);
     harvestWords(prompt, best.a);
+    const needsReview = mode === "chat" || bestScore < 18;
     return {
       ok: true,
       text: out,
@@ -714,12 +801,16 @@ async function generateReply(prompt, fileContext) {
       sampleId: best.id,
       mode,
       learned,
+      composed: false,
+      needsReview,
       candidates,
-      pickHint: candidates.length > 1 ? "not perfect? pick another candidate to teach" : undefined,
+      pickHint: candidates.length > 1 ? "not perfect? pick another candidate to teach" : (needsReview ? "mark correct or rewrite if off" : undefined),
     };
   }
 
-  // fallback dict
+  // weak / no match → self-speak (mix words + fragments) so it can talk, then user corrects
+  const composed = composeFromParts(prompt, tokens, mode, ranked);
+  let dictNote = "";
   const contentWords = tokens.filter(
     (t) =>
       ![
@@ -728,37 +819,26 @@ async function generateReply(prompt, fileContext) {
       ].includes(t)
   );
   if (contentWords.length) {
-    const dict = await dictLookup(contentWords[0], es);
-    if (dict) {
-      const text = `${think}\n\nNo strong training match.\n\n${dict.text}\n\nAdd a Q→A under Train AI for a direct answer.`;
-      harvestWords(prompt, dict.text);
-      return {
-        ok: true,
-        text,
-        score: 1,
-        sampleId: null,
-        mode,
-        learned: false,
-        candidates,
-        pickHint: "pick a candidate or train a better answer",
-      };
-    }
+    try {
+      const dict = await dictLookup(contentWords[0], es);
+      if (dict && dict.text) dictNote = "\n\n" + dict.text;
+    } catch (_) {}
   }
-
-  const out =
-    `${think}\n\nNo strong training match yet.\n\n` +
-    (es
-      ? "Agrega un Q→A en Train AI (admin) para este prompt, o elegí una respuesta candidata abajo."
-      : "Add a Q→A under Train AI, or pick a candidate answer below to lock it.");
+  let out = `${think}\n\n${composed.text}${dictNote}`;
+  if (fileContext) out += "\n\n(from your project)\n" + fileContext;
+  out += `\n\n_self-speak · mixed · mode ${mode} · score ${bestScore.toFixed(1)}_`;
+  harvestWords(prompt, composed.text);
   return {
     ok: true,
-    text: fileContext ? out + "\n\n" + fileContext : out,
-    score: bestScore,
+    text: out,
+    score: Math.max(bestScore, 2),
     sampleId: null,
     mode,
     learned: false,
+    composed: true,
+    needsReview: true,
     candidates,
-    pickHint: "choose the best answer — it becomes training",
+    pickHint: "self-spoke — mark correct or rewrite below to teach",
   };
 }
 
